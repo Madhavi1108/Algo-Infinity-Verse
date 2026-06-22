@@ -41,10 +41,14 @@ export function detectWorkspaceConfigs(rootDir) {
     // Check for pnpm workspace
     if (fs.existsSync(path.join(rootDir, 'pnpm-workspace.yaml'))) {
         type = type === 'single-project' ? 'monorepo-pnpm' : type;
-        const pnpmYaml = fs.readFileSync(path.join(rootDir, 'pnpm-workspace.yaml'), 'utf8');
-        const matches = pnpmYaml.match(/-\s+'([^']+)'/g);
-        if (matches) {
-            patterns.push(...matches.map(m => m.replace(/-\s+'?/, '').replace(/'$/, '')));
+        try {
+            const pnpmYaml = fs.readFileSync(path.join(rootDir, 'pnpm-workspace.yaml'), 'utf8');
+            const matches = pnpmYaml.match(/-\s+'([^']+)'/g);
+            if (matches) {
+                patterns.push(...matches.map(m => m.replace(/-\s+['"]?/, '').replace(/['"]?$/, '')));
+            }
+        } catch (e) {
+            console.warn(`Failed to parse pnpm-workspace.yaml: ${e.message}`);
         }
     }
 
