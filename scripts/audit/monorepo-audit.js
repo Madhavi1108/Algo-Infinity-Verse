@@ -119,8 +119,12 @@ export function auditProject(projectPath) {
 
     if (fs.existsSync(path.join(projectPath, 'package.json'))) {
         findings.hasPackageJson = true;
-        const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
-        findings.dependencies = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+        try {
+            const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
+            findings.dependencies = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+        } catch (e) {
+            console.warn(`Failed to parse package.json at ${projectPath}: ${e.message}`);
+        }
     }
 
     findings.hasTsConfig = fs.existsSync(path.join(projectPath, 'tsconfig.json'));
