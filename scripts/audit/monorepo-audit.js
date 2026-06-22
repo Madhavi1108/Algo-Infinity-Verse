@@ -37,16 +37,29 @@ export function detectWorkspaceConfigs(rootDir) {
             patterns.push(...lernaJson.packages);
         }
     }
+// Check for pnpm workspace
+if (fs.existsSync(path.join(rootDir, 'pnpm-workspace.yaml'))) {
+    type = type === 'single-project' ? 'monorepo-pnpm' : type;
 
-    // Check for pnpm workspace
-    if (fs.existsSync(path.join(rootDir, 'pnpm-workspace.yaml'))) {
-        type = type === 'single-project' ? 'monorepo-pnpm' : type;
-        const pnpmYaml = fs.readFileSync(path.join(rootDir, 'pnpm-workspace.yaml'), 'utf8');
+    try {
+        const pnpmYaml = fs.readFileSync(
+            path.join(rootDir, 'pnpm-workspace.yaml'),
+            'utf8'
+        );
+
         const matches = pnpmYaml.match(/-\s+'([^']+)'/g);
+
         if (matches) {
-            patterns.push(...matches.map(m => m.replace(/-\s+'?/, '').replace(/'$/, '')));
+            patterns.push(
+                ...matches.map(m =>
+                    m.replace(/-\s+['"]?/, '').replace(/['"]?$/, '')
+                )
+            );
         }
+    } catch (e) {
+        console.warn(`Failed to parse pnpm-workspace.yaml: ${e.message}`);
     }
+}
 
     // Check npm/yarn workspaces in package.json
     if (fs.existsSync(path.join(rootDir, 'package.json'))) {
@@ -119,8 +132,12 @@ export function auditProject(projectPath) {
 
     if (fs.existsSync(path.join(projectPath, 'package.json'))) {
         findings.hasPackageJson = true;
-        const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
-        findings.dependencies = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+        try {
+            const pkg = JSON.parse(fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8'));
+            findings.dependencies = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}));
+        } catch (e) {
+            console.warn(`Failed to parse package.json at ${projectPath}: ${e.message}`);
+        }
     }
 
     findings.hasTsConfig = fs.existsSync(path.join(projectPath, 'tsconfig.json'));
