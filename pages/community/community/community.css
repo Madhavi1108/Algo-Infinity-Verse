@@ -597,56 +597,56 @@ body {
    LIGHT MODE
 ========================= */
 
-body.light-mode .glass-card,
-body.light-mode .post-card {
+html.light-mode .glass-card,
+html.light-mode .post-card {
     background: rgba(255, 255, 255, 0.95);
     color: #1f2937;
     border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
-body.light-mode .create-post-form input,
-body.light-mode .create-post-form textarea,
-body.light-mode .search-input,
-body.light-mode .add-comment-form input {
+html.light-mode .create-post-form input,
+html.light-mode .create-post-form textarea,
+html.light-mode .search-input,
+html.light-mode .add-comment-form input {
     background: #ffffff;
     color: #1f2937;
     border: 1px solid #d1d5db;
 }
 
-body.light-mode .post-title,
-body.light-mode .sidebar-card h3,
-body.light-mode .community-header,
-body.light-mode .post-content,
-body.light-mode .comment-text,
-body.light-mode .guidelines-list li {
+html.light-mode .post-title,
+html.light-mode .sidebar-card h3,
+html.light-mode .community-header,
+html.light-mode .post-content,
+html.light-mode .comment-text,
+html.light-mode .guidelines-list li {
     color: #111827;
 }
 
-body.light-mode .post-meta,
-body.light-mode .comment-meta,
-body.light-mode .section-subtitle {
+html.light-mode .post-meta,
+html.light-mode .comment-meta,
+html.light-mode .section-subtitle {
     color: #6b7280;
 }
 
-body.light-mode .post-action-btn {
+html.light-mode .post-action-btn {
     background: #f3f4f6;
     color: #111827;
 }
 
-body.light-mode .vote-actions {
+html.light-mode .vote-actions {
     background: #f3f4f6;
 }
 
-body.light-mode .post-tag,
-body.light-mode .tag {
+html.light-mode .post-tag,
+html.light-mode .tag {
     background: rgba(139, 92, 246, 0.12);
     color: #6d28d9;
 }
 
-body.light-mode .comments-section {
+html.light-mode .comments-section {
     border-top: 1px solid #e5e7eb;
 }
 
-body.light-mode .comment {
+html.light-mode .comment {
     background: #f9fafb;
 }

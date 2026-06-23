@@ -4922,7 +4922,7 @@ section[id] {
 }
 
 /* ===== DARK/LIGHT MODE ===== */
-body.light-mode {
+html.light-mode {
     --dark-bg: #ffffff;
     --dark-surface: #f8fafc;
     --dark-card: #e2e8f0;
