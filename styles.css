@@ -7798,3 +7798,15 @@ html.auth-verified [data-guest-only] {
   border-radius: 50%;
   object-fit: cover;
 }
+/* Lazy Loading Image Styles */
+img.lazy-image, .lazy-bg {
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+img.lazy-loaded, .lazy-bg.lazy-loaded {
+  opacity: 1;
+}
+img {
+  content-visibility: auto;
+}
+
