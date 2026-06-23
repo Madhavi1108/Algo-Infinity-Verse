@@ -4,7 +4,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     lib: {
-      entry: 'src/main.js',
+      entry: 'script.js',
       name: 'App',
       formats: ['iife'],
       fileName: () => 'script.js'

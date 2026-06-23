@@ -527,7 +527,7 @@
       const firebaseUser = window.__firebaseClient.getCurrentUser();
       if (firebaseUser) {
         try {
-          const idToken = await firebaseUser.getIdToken();
+          const idToken = await firebaseUser.getIdToken(true);
           if (idToken) {
             const response = await fetch("/api/auth/google", {
               method: "POST",

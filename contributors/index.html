@@ -276,7 +276,7 @@
       const rank = rankIdx >= 0 ? rankIdx + 1 : '?';
 
       content.innerHTML = `
-        <div class="modal-avatar"><img src="${contributor.avatar_url}" alt="${contributor.login}"></div>
+        <div class="modal-avatar"><img loading="lazy" src="${contributor.avatar_url}" alt="${contributor.login}"></div>
         <div class="modal-name">${contributor.login}</div>
         <div class="modal-username">@${contributor.login} · <a href="${contributor.html_url}" target="_blank" rel="noopener" style="color:#667eea;">GitHub Profile</a></div>
         <div class="modal-stats-grid">

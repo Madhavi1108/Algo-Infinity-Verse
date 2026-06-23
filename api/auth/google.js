@@ -5,31 +5,44 @@ import crypto from "crypto";
 
 let db = null;
 let useFirestore = false;
+let adminApp = null;
+let initError = null;
 
 function initFirebase() {
-  if (getApps().length > 0) {
+  if (adminApp) return;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  if (!projectId) {
+    initError = new Error("FIREBASE_PROJECT_ID is not set");
+    console.error(initError.message);
+    return;
+  }
+
+  try {
+    if (clientEmail && privateKey) {
+      adminApp = initializeApp({
+        credential: cert({ projectId, clientEmail, privateKey }),
+      });
+    } else {
+      initError = new Error(
+        "Firebase Admin requires FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY " +
+        "environment variables to verify ID tokens. Project-only init cannot verify tokens."
+      );
+      console.error(initError.message);
+      return;
+    }
     try {
-      db = getFirestore();
+      db = getFirestore(adminApp);
       useFirestore = true;
     } catch (e) {
       console.warn("Firestore unavailable:", e);
     }
-    return;
-  }
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (clientEmail && privateKey) {
-    try {
-      initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
-      db = getFirestore();
-      useFirestore = true;
-    } catch (e) {
-      console.error("Firebase init error:", e);
-    }
-  }
-  if (getApps().length === 0 && projectId) {
-    initializeApp({ projectId });
+  } catch (e) {
+    initError = e;
+    console.error("Firebase Admin init error:", e);
   }
 }
 initFirebase();
@@ -86,10 +99,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing idToken" });
     }
 
+    if (initError) {
+      console.error("Firebase Admin not initialized:", initError.message);
+      return res.status(500).json({ error: "Authentication service not configured on server." });
+    }
+
+    if (!adminApp) {
+      return res.status(500).json({ error: "Firebase Admin not initialized. Set FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY." });
+    }
+
     let decoded;
     try {
-      decoded = await getAuth().verifyIdToken(idToken);
+      decoded = await getAuth(adminApp).verifyIdToken(idToken);
     } catch (verifyError) {
+      console.error("Token verification failed:", verifyError.message);
       return res.status(401).json({ error: "Invalid token" });
     }
 
