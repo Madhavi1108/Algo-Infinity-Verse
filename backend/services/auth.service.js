@@ -1,6 +1,10 @@
 import crypto from "crypto";
 
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+export const ACCESS_TOKEN_MAX_AGE_SECONDS = 15 * 60; // 15 mins
+export const REFRESH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
+
+// Tracking families for token rotation
+export const activeRefreshFamilies = new Map();
 const PBKDF2_ITERATIONS = 210000;
 const PASSWORD_KEY_LENGTH = 32;
 
@@ -94,21 +98,44 @@ function sign(value) {
     .digest("base64url");
 }
 
-export function createSessionToken(user) {
+export function createAccessToken(user) {
   const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = base64Url(
     JSON.stringify({
       sub: user.id,
       name: user.name,
       email: user.email,
-      exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS,
+      exp: Math.floor(Date.now() / 1000) + ACCESS_TOKEN_MAX_AGE_SECONDS,
+      type: "access"
     }),
   );
   const body = `${header}.${payload}`;
   return `${body}.${sign(body)}`;
 }
 
-export function verifySessionToken(token) {
+export function createRefreshToken(user, familyId = crypto.randomUUID(), nonce = crypto.randomUUID()) {
+  activeRefreshFamilies.set(familyId, { currentNonce: nonce });
+  const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = base64Url(
+    JSON.stringify({
+      sub: user.id,
+      name: user.name,
+      email: user.email,
+      exp: Math.floor(Date.now() / 1000) + REFRESH_TOKEN_MAX_AGE_SECONDS,
+      type: "refresh",
+      familyId,
+      nonce
+    }),
+  );
+  const body = `${header}.${payload}`;
+  return `${body}.${sign(body)}`;
+}
+
+export function revokeTokenFamily(familyId) {
+  activeRefreshFamilies.delete(familyId);
+}
+
+export function verifyToken(token, expectedType) {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
@@ -126,12 +153,30 @@ export function verifySessionToken(token) {
 
   try {
     const session = JSON.parse(fromBase64Url(payload));
-    if (!session.exp || session.exp < Math.floor(Date.now() / 1000))
-      return null;
+    if (!session.exp || session.exp < Math.floor(Date.now() / 1000)) return null;
+    if (session.type !== expectedType) return null;
     return session;
   } catch {
     return null;
   }
+}
+
+export function verifyAccessToken(token) {
+  return verifyToken(token, "access");
+}
+
+export function verifyRefreshToken(token) {
+  const session = verifyToken(token, "refresh");
+  if (!session) return null;
+  
+  const family = activeRefreshFamilies.get(session.familyId);
+  if (!family) return null;
+  
+  if (family.currentNonce !== session.nonce) {
+    revokeTokenFamily(session.familyId);
+    return null;
+  }
+  return session;
 }
 
 export function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
