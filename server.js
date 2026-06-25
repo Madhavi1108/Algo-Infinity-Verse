@@ -701,6 +701,7 @@ async function handleApi(req, res, pathname) {
     
     const decoded = verifyRefreshToken(rToken);
     if (!decoded) return sendJson(res, 401, { error: "Invalid or expired refresh token" }, { "Set-Cookie": clearAuthCookies() });
+    revokeTokenFamily(decoded.familyId);
 
     // Find user
     const users = useFirestore ? [] : await readUsers();
@@ -719,11 +720,10 @@ async function handleApi(req, res, pathname) {
 
     if (!user) return sendJson(res, 401, { error: "User not found" }, { "Set-Cookie": clearAuthCookies() });
 
-    revokeTokenFamily(decoded.familyId);
     const accessToken = createAccessToken(user);
-    const refreshToken = createRefreshToken(user);
+    const refreshToken = createRefreshToken(user, decoded.familyId);
     
-    return sendJson(res, 200, { success: true, accessToken }, { "Set-Cookie": authCookies(accessToken, refreshToken, req) });
+    return sendJson(res, 200, { success: true }, { "Set-Cookie": authCookies(accessToken, refreshToken, req) });
   }
 
   if (pathname === "/api/session" && req.method === "GET") {
