@@ -10,6 +10,122 @@ function debounce(func, wait) {
 }
 
 // ============================================
+// CACHE MANAGER (IndexedDB)
+// ============================================
+class CacheManager {
+  constructor(dbName = 'AlgoInfinityCache', storeName = 'api_responses') {
+    this.dbName = dbName;
+    this.storeName = storeName;
+    this.dbPromise = this.initDB();
+  }
+
+  initDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName, { keyPath: 'url' });
+        }
+      };
+    });
+  }
+
+  async set(url, data, type = 'json', ttlMs = 3600000) {
+    try {
+      const db = await this.dbPromise;
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const record = {
+          url,
+          data,
+          type,
+          expiresAt: Date.now() + ttlMs,
+          updatedAt: Date.now()
+        };
+        const req = store.put(record);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn("Cache set error:", e);
+    }
+  }
+
+  async get(url) {
+    try {
+      const db = await this.dbPromise;
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readonly');
+        const store = tx.objectStore(this.storeName);
+        const req = store.get(url);
+        req.onsuccess = () => {
+          const record = req.result;
+          if (!record) return resolve(null);
+          if (Date.now() > record.expiresAt) {
+            this.invalidate(url);
+            return resolve(null);
+          }
+          resolve(record);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn("Cache get error:", e);
+      return null;
+    }
+  }
+
+  async invalidate(url) {
+    try {
+      const db = await this.dbPromise;
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(this.storeName, 'readwrite');
+        const store = tx.objectStore(this.storeName);
+        const req = store.delete(url);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    } catch (e) {
+      console.warn("Cache invalidate error:", e);
+    }
+  }
+
+  async fetchWithCache(url, options = {}, ttlMs = 3600000, type = 'json') {
+    const cached = await this.get(url);
+    
+    const doFetch = async () => {
+      try {
+        const resp = await fetch(url, options);
+        if (!resp.ok) throw new Error('Network response was not ok');
+        const data = type === 'json' ? await resp.json() : await resp.text();
+        await this.set(url, data, type, ttlMs);
+        return data;
+      } catch (e) {
+        console.warn(`CacheManager fetch failed for ${url}:`, e);
+        if (cached) return cached.data;
+        throw e;
+      }
+    };
+
+    if (cached) {
+      const age = Date.now() - cached.updatedAt;
+      if (age > ttlMs / 2) {
+        doFetch().catch(e => console.warn('Background revalidate failed:', e));
+      }
+      return cached.data;
+    }
+
+    return await doFetch();
+  }
+}
+
+const apiCache = new CacheManager();
+
+// ============================================
 // PARTIAL LOADER
 // ============================================
 function getPartialsBase() {
@@ -28,9 +144,10 @@ async function loadPartial(id, url) {
     const base = getPartialsBase();
     const filename = url.replace(/^\/?partials\//, '');
     const fetchUrl = base + '/' + filename;
-    const resp = await fetch(fetchUrl);
-    if (!resp.ok) throw new Error('Failed to load ' + url);
-    const html = await resp.text();
+    
+    // Cache partials for 24 hours (86400000 ms) as they rarely change
+    const html = await apiCache.fetchWithCache(fetchUrl, {}, 86400000, 'text');
+    
     document.getElementById(id).innerHTML = html;
     handleActiveNav();
   } catch (e) {
@@ -1622,9 +1739,8 @@ function updateLeaderboard() {
 
 async function loadLeaderboard() {
   if (location.protocol === "file:") return { leaders: [], currentUserId: null };
-  const response = await fetch("/api/leaderboard", { credentials: "include" });
-  if (!response.ok) throw new Error("Leaderboard request failed.");
-  return response.json();
+  // Cache leaderboard data for 5 minutes (300000 ms) with stale-while-revalidate
+  return await apiCache.fetchWithCache("/api/leaderboard", { credentials: "include" }, 300000, 'json');
 }
 
 function buildLeaderboardRows(leaders = [], currentUserId = getCurrentUserId()) {
