@@ -1,181 +1,4 @@
 // ============================================
-
-
-// GLOBAL MODULES LOADER
-// ============================================
-(function() {
-  function getBaseUrl() {
-    const scripts = document.getElementsByTagName('script');
-    for (let s of scripts) {
-      if (s.src && s.src.includes('script.js')) {
-        return s.src.substring(0, s.src.lastIndexOf('/'));
-      }
-    }
-    return '';
-  }
-
-  const base = getBaseUrl();
-  const modules = ['/modules/toast.js', '/modules/error-boundary.js'];
-
-  modules.forEach(mod => {
-    const script = document.createElement('script');
-    script.src = base + mod;
-    script.async = false; // Preserve execution order
-    document.head.insertBefore(script, document.head.firstChild);
-  });
-})();
-
-// UTILITY FUNCTIONS (Memoization & Debounce)
-// ============================================
-function debounce(func, wait) {
-  let timeout;
-  return function (...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
-  };
-}
-// ============================================
-// ABORT MANAGER
-// ============================================
-class AbortManager {
-  constructor() {
-    this.controllers = new Map();
-  }
-  getSignal(key) {
-    if (this.controllers.has(key)) {
-      this.controllers.get(key).abort();
-    }
-    const controller = new AbortController();
-    this.controllers.set(key, controller);
-    return controller.signal;
-  }
-  clearSignal(key) {
-    this.controllers.delete(key);
-  }
-}
-
-const apiAbort = new AbortManager();
-
-// ============================================
-// CACHE MANAGER (IndexedDB)
-// ============================================
-class CacheManager {
-  constructor(dbName = 'AlgoInfinityCache', storeName = 'api_responses') {
-    this.dbName = dbName;
-    this.storeName = storeName;
-    this.dbPromise = this.initDB();
-  }
-
-  initDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, 1);
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result);
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(this.storeName)) {
-          db.createObjectStore(this.storeName, { keyPath: 'url' });
-        }
-      };
-    });
-  }
-
-  async set(url, data, type = 'json', ttlMs = 3600000) {
-    try {
-      const db = await this.dbPromise;
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.storeName, 'readwrite');
-        const store = tx.objectStore(this.storeName);
-        const record = {
-          url,
-          data,
-          type,
-          expiresAt: Date.now() + ttlMs,
-          updatedAt: Date.now()
-        };
-        const req = store.put(record);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } catch (e) {
-      console.warn("Cache set error:", e);
-    }
-  }
-
-  async get(url) {
-    try {
-      const db = await this.dbPromise;
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.storeName, 'readonly');
-        const store = tx.objectStore(this.storeName);
-        const req = store.get(url);
-        req.onsuccess = () => {
-          const record = req.result;
-          if (!record) return resolve(null);
-          if (Date.now() > record.expiresAt) {
-            this.invalidate(url);
-            return resolve(null);
-          }
-          resolve(record);
-        };
-        req.onerror = () => reject(req.error);
-      });
-    } catch (e) {
-      console.warn("Cache get error:", e);
-      return null;
-    }
-  }
-
-  async invalidate(url) {
-    try {
-      const db = await this.dbPromise;
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(this.storeName, 'readwrite');
-        const store = tx.objectStore(this.storeName);
-        const req = store.delete(url);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    } catch (e) {
-      console.warn("Cache invalidate error:", e);
-    }
-  }
-
-  async fetchWithCache(url, options = {}, ttlMs = 3600000, type = 'json') {
-    const cached = await this.get(url);
-    
-    const doFetch = async () => {
-      try {
-        const resp = await fetch(url, options);
-        if (!resp.ok) throw new Error('Network response was not ok');
-        const data = type === 'json' ? await resp.json() : await resp.text();
-        await this.set(url, data, type, ttlMs);
-        return data;
-      } catch (e) {
-        if (e.name === 'AbortError') throw e;
-        console.warn(`CacheManager fetch failed for ${url}:`, e);
-        if (cached) return cached.data;
-        throw e;
-      }
-    };
-
-    if (cached) {
-      const age = Date.now() - cached.updatedAt;
-      if (age > ttlMs / 2) {
-        doFetch().catch(e => {
-          if (e.name !== 'AbortError') console.warn('Background revalidate failed:', e);
-        });
-      }
-      return cached.data;
-    }
-
-    return await doFetch();
-  }
-}
-
-const apiCache = new CacheManager();
-
-// ============================================
 // PARTIAL LOADER
 // ============================================
 function getPartialsBase() {
@@ -190,24 +13,17 @@ function getPartialsBase() {
 }
 
 async function loadPartial(id, url) {
-  const abortKey = `partial_${id}`;
   try {
-    const signal = apiAbort.getSignal(abortKey);
     const base = getPartialsBase();
     const filename = url.replace(/^\/?partials\//, '');
     const fetchUrl = base + '/' + filename;
-    
-    // Cache partials for 24 hours (86400000 ms) as they rarely change
-    const html = await apiCache.fetchWithCache(fetchUrl, { signal }, 86400000, 'text');
-    
+    const resp = await fetch(fetchUrl);
+    if (!resp.ok) throw new Error('Failed to load ' + url);
+    const html = await resp.text();
     document.getElementById(id).innerHTML = html;
     handleActiveNav();
   } catch (e) {
-    if (e.name !== 'AbortError') {
-      console.warn('Could not load partial:', url);
-    }
-  } finally {
-    apiAbort.clearSignal(abortKey);
+    console.warn('Could not load partial:', url);
   }
 }
 
@@ -1786,7 +1602,6 @@ function updateLeaderboard() {
     const resolvedCurrentUserId = currentUserId || getCurrentUserId();
     renderLeaderboardRows(buildLeaderboardRows(leaders, resolvedCurrentUserId), resolvedCurrentUserId);
   }).catch(error => {
-    if (error.name === 'AbortError') return;
     console.warn("Could not load leaderboard:", error);
     if (requestId !== leaderboardRequestId) return;
     renderLeaderboardRows(buildLeaderboardRows([], getCurrentUserId()), getCurrentUserId(), { emptyMessage: "Leaderboard unavailable." });
@@ -1795,13 +1610,9 @@ function updateLeaderboard() {
 
 async function loadLeaderboard() {
   if (location.protocol === "file:") return { leaders: [], currentUserId: null };
-  const signal = apiAbort.getSignal('leaderboard');
-  try {
-    // Cache leaderboard data for 5 minutes (300000 ms) with stale-while-revalidate
-    return await apiCache.fetchWithCache("/api/leaderboard", { credentials: "include", signal }, 300000, 'json');
-  } finally {
-    apiAbort.clearSignal('leaderboard');
-  }
+  const response = await fetch("/api/leaderboard", { credentials: "include" });
+  if (!response.ok) throw new Error("Leaderboard request failed.");
+  return response.json();
 }
 
 function buildLeaderboardRows(leaders = [], currentUserId = getCurrentUserId()) {
@@ -3270,11 +3081,6 @@ else initializeQuizEditor();
 // ============================================
 // HASH CHANGE ROUTER
 // ============================================
-
-
-// ============================================
-// HASH CHANGE ROUTER
-// ============================================
 window.addEventListener('hashchange', () => {
   const currentHash = window.location.hash || '#home';
   if (currentHash === '#home' || currentHash === '') {
@@ -3284,52 +3090,33 @@ window.addEventListener('hashchange', () => {
     });
     if (typeof tQuiz !== 'undefined') tQuiz = null;
   }
-  
-  const path = window.location.pathname;
-  if (path.includes('/pages/learning/') || path.includes('/pages/visualizers/') || path.includes('/pages/resources/')) {
-    const script = document.createElement('script');
-    script.src = '/scripts/report-issue.js';
-    document.body.appendChild(script);
-  }
 });
 
-if (window.navManager) {
-  window.navManager.subscribe((state) => {
-    if (state.tab === 'practice') {
-      currentFilter = state.filter || 'all';
-      currentSearch = state.search || '';
-      
-      const searchInput = document.getElementById('searchInput');
-      const clearBtn = document.getElementById('clearSearchBtn');
-      if (searchInput) searchInput.value = currentSearch;
-      if (clearBtn) {
-          if (currentSearch.length > 0) clearBtn.classList.add('visible');
-          else clearBtn.classList.remove('visible');
-      }
-      
-      const filterButtons = document.querySelectorAll('.filter-btn');
-      filterButtons.forEach((b) => b.classList.remove('active'));
-      const activeBtn = Array.from(filterButtons).find(b => b.dataset.filter === currentFilter);
-      if (activeBtn) activeBtn.classList.add('active');
-      
-      if (typeof renderProblems === 'function') renderProblems();
-    }
-    
-    const modal = document.getElementById('quizEditorModal');
-    if (state.problem) {
-      if (!modal || !modal.classList.contains('active')) {
-        const problem = typeof practiceProblems !== 'undefined' ? practiceProblems.find(p => p.id == state.problem) : null;
-        if (problem && typeof openQuizEditor === 'function') openQuizEditor(problem, true);
-      }
-    } else {
-      if (modal && modal.classList.contains('active')) {
-        if (typeof closeQuizEditor === 'function') closeQuizEditor(true);
-      }
-    }
-  });
-
-  if (navManager.state.problem && typeof practiceProblems !== 'undefined') {
-    const problem = practiceProblems.find(p => p.id == navManager.state.problem);
-    if (problem && typeof openQuizEditor === 'function') openQuizEditor(problem, true);
-  }
+// ============================================
+// RUN PERL
+// ============================================
+let isRunning = false;
+function initPerlEditor() {
+  const codeEl = document.getElementById("perlEditor");
+  const outputEl = document.getElementById("perlOutput");
+  const runBtn = document.getElementById("runBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const sampleBtn = document.getElementById("sampleBtn");
+  if (runBtn) runBtn.addEventListener("click", runPerl);
+  if (resetBtn) resetBtn.addEventListener("click", () => { if (codeEl) codeEl.value = ""; if (outputEl) outputEl.textContent = "Run code to see output..."; });
+  if (sampleBtn) sampleBtn.addEventListener("click", () => { if (codeEl) codeEl.value = `print "Hello World\\n";\n\nmy $name = "DSA Learner";\nprint "Welcome $name\\n";`; });
 }
+
+async function runPerl() {
+  if (isRunning) return;
+  isRunning = true;
+  const editor = document.getElementById("perlEditor");
+  const output = document.getElementById("perlOutput");
+  const code = editor ? editor.value.trim() : "";
+  if (!code) { if (output) output.textContent = "❌ No code provided"; isRunning = false; return; }
+  if (output) output.textContent = "Running... ⏳";
+  try {
+    const res = await fetch("http://localhost:5000/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const data = await res.json().catch(() => ({}));
+    if (output) output.textContent = data.output || data.error || "No output";
+  } catch (err) { if (output) output.textContent = "Error: " + 
