@@ -1097,7 +1097,8 @@ function attachProblemGridEventDelegation(grid) {
         renderProblems(); // Re-render to remove from list
       } else {
         // Optimize re-render: just update the local DOM button state
-        favoriteBtn.classList.toggle('active');
+        const isActive = favoriteBtn.classList.toggle('active');
+        favoriteBtn.setAttribute('aria-pressed', String(isActive));
         // Clear filter cache to ensure it's re-computed next time if needed
         lastFilteredCacheKey = "";
       }
