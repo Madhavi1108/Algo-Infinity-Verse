@@ -10,6 +10,28 @@ function debounce(func, wait) {
 }
 
 // ============================================
+// ABORT MANAGER
+// ============================================
+class AbortManager {
+  constructor() {
+    this.controllers = new Map();
+  }
+  getSignal(key) {
+    if (this.controllers.has(key)) {
+      this.controllers.get(key).abort();
+    }
+    const controller = new AbortController();
+    this.controllers.set(key, controller);
+    return controller.signal;
+  }
+  clearSignal(key) {
+    this.controllers.delete(key);
+  }
+}
+
+const apiAbort = new AbortManager();
+
+// ============================================
 // CACHE MANAGER (IndexedDB)
 // ============================================
 class CacheManager {
@@ -105,6 +127,7 @@ class CacheManager {
         await this.set(url, data, type, ttlMs);
         return data;
       } catch (e) {
+        if (e.name === 'AbortError') throw e;
         console.warn(`CacheManager fetch failed for ${url}:`, e);
         if (cached) return cached.data;
         throw e;
@@ -114,7 +137,9 @@ class CacheManager {
     if (cached) {
       const age = Date.now() - cached.updatedAt;
       if (age > ttlMs / 2) {
-        doFetch().catch(e => console.warn('Background revalidate failed:', e));
+        doFetch().catch(e => {
+          if (e.name !== 'AbortError') console.warn('Background revalidate failed:', e);
+        });
       }
       return cached.data;
     }
@@ -140,18 +165,24 @@ function getPartialsBase() {
 }
 
 async function loadPartial(id, url) {
+  const abortKey = `partial_${id}`;
   try {
+    const signal = apiAbort.getSignal(abortKey);
     const base = getPartialsBase();
     const filename = url.replace(/^\/?partials\//, '');
     const fetchUrl = base + '/' + filename;
     
     // Cache partials for 24 hours (86400000 ms) as they rarely change
-    const html = await apiCache.fetchWithCache(fetchUrl, {}, 86400000, 'text');
+    const html = await apiCache.fetchWithCache(fetchUrl, { signal }, 86400000, 'text');
     
     document.getElementById(id).innerHTML = html;
     handleActiveNav();
   } catch (e) {
-    console.warn('Could not load partial:', url);
+    if (e.name !== 'AbortError') {
+      console.warn('Could not load partial:', url);
+    }
+  } finally {
+    apiAbort.clearSignal(abortKey);
   }
 }
 
@@ -1731,6 +1762,7 @@ function updateLeaderboard() {
     const resolvedCurrentUserId = currentUserId || getCurrentUserId();
     renderLeaderboardRows(buildLeaderboardRows(leaders, resolvedCurrentUserId), resolvedCurrentUserId);
   }).catch(error => {
+    if (error.name === 'AbortError') return;
     console.warn("Could not load leaderboard:", error);
     if (requestId !== leaderboardRequestId) return;
     renderLeaderboardRows(buildLeaderboardRows([], getCurrentUserId()), getCurrentUserId(), { emptyMessage: "Leaderboard unavailable." });
@@ -1739,8 +1771,13 @@ function updateLeaderboard() {
 
 async function loadLeaderboard() {
   if (location.protocol === "file:") return { leaders: [], currentUserId: null };
-  // Cache leaderboard data for 5 minutes (300000 ms) with stale-while-revalidate
-  return await apiCache.fetchWithCache("/api/leaderboard", { credentials: "include" }, 300000, 'json');
+  const signal = apiAbort.getSignal('leaderboard');
+  try {
+    // Cache leaderboard data for 5 minutes (300000 ms) with stale-while-revalidate
+    return await apiCache.fetchWithCache("/api/leaderboard", { credentials: "include", signal }, 300000, 'json');
+  } finally {
+    apiAbort.clearSignal('leaderboard');
+  }
 }
 
 function buildLeaderboardRows(leaders = [], currentUserId = getCurrentUserId()) {
