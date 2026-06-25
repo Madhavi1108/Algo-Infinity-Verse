@@ -352,7 +352,19 @@ function renderPosts() {
         postContent.className = 'post-content markdown-body';
         
         let safePostHtml = '';
-        if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        if (typeof MarkdownParser !== 'undefined') {
+            const parsedHtml = MarkdownParser.parse(post.content);
+            if (typeof window !== 'undefined' && window.DOMSanitizer) {
+                safePostHtml = window.DOMSanitizer.sanitizeHTML(parsedHtml);
+            } else if (typeof DOMPurify !== 'undefined') {
+                safePostHtml = DOMPurify.sanitize(parsedHtml, {
+                    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'],
+                    ALLOWED_ATTR: ['href', 'target', 'rel']
+                });
+            } else {
+                safePostHtml = escapeHtml(post.content);
+            }
+        } else if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
             safePostHtml = DOMPurify.sanitize(marked.parse(post.content, { breaks: true }), {
                 ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'],
                 ALLOWED_ATTR: ['href', 'target', 'rel']
@@ -462,7 +474,19 @@ function renderPosts() {
                 commentText.className = 'comment-text markdown-body';
                 
                 let safeCommentHtml = '';
-                if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+                if (typeof MarkdownParser !== 'undefined') {
+                    const parsedHtml = MarkdownParser.parse(c.text);
+                    if (typeof window !== 'undefined' && window.DOMSanitizer) {
+                        safeCommentHtml = window.DOMSanitizer.sanitizeHTML(parsedHtml);
+                    } else if (typeof DOMPurify !== 'undefined') {
+                        safeCommentHtml = DOMPurify.sanitize(parsedHtml, {
+                            ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'],
+                            ALLOWED_ATTR: ['href', 'target', 'rel']
+                        });
+                    } else {
+                        safeCommentHtml = escapeHtml(c.text);
+                    }
+                } else if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
                     safeCommentHtml = DOMPurify.sanitize(marked.parse(c.text, { breaks: true }), {
                         ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'hr'],
                         ALLOWED_ATTR: ['href', 'target', 'rel']
