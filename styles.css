@@ -8319,3 +8319,203 @@ html.light-mode .report-issue-btn:hover {
   background: #6d28d9;
   box-shadow: 0 12px 30px rgba(124, 58, 237, 0.6);
 }
+/* ===== BREADCRUMBS ===== */
+.breadcrumbs {
+  padding: 1rem 2rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.breadcrumbs .breadcrumb-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.breadcrumbs .breadcrumb-link:hover {
+  color: var(--text-primary);
+  text-shadow: 0 0 8px rgba(139, 92, 246, 0.5);
+}
+
+.breadcrumbs .breadcrumb-separator {
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+  margin: 0 0.2rem;
+}
+
+.breadcrumbs .breadcrumb-active {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* ========================================================= */
+/* Global Error Boundary and Toast Notification Styles       */
+/* ========================================================= */
+
+#toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toast-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--dark-card, #252550);
+  border-left: 4px solid var(--primary, #7c3aed);
+  color: var(--text-primary, #ffffff);
+  box-shadow: var(--glass-shadow, 0 8px 32px 0 rgba(31, 38, 135, 0.37));
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.3s ease;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.toast-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-success { border-color: #22c55e; }
+.toast-success .toast-icon { color: #22c55e; }
+
+.toast-error { border-color: #ef4444; }
+.toast-error .toast-icon { color: #ef4444; }
+
+.toast-warning { border-color: #f59e0b; }
+.toast-warning .toast-icon { color: #f59e0b; }
+
+.toast-info { border-color: #3b82f6; }
+.toast-info .toast-icon { color: #3b82f6; }
+
+.toast-message {
+  flex-grow: 1;
+  font-size: 0.95rem;
+  font-family: var(--font-primary, 'Poppins', sans-serif);
+}
+
+.toast-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #a1a1aa);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.toast-close:hover {
+  color: var(--text-primary, #ffffff);
+}
+
+/* Error Boundary Fallback Overlay */
+.error-boundary-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 10, 26, 0.85);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.error-boundary-modal {
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  padding: 40px;
+  background: var(--dark-surface, #1a1a3e);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  color: #fff;
+}
+
+.error-boundary-modal .error-icon {
+  font-size: 4rem;
+  color: #ef4444;
+  margin-bottom: 20px;
+}
+
+.error-boundary-modal h2 {
+  font-family: 'Orbitron', sans-serif;
+  margin-bottom: 15px;
+  font-size: 1.8rem;
+}
+
+.error-boundary-modal p {
+  color: var(--text-secondary, #a1a1aa);
+  margin-bottom: 25px;
+}
+
+.error-details-toggle {
+  cursor: pointer;
+  color: var(--primary-light, #a78bfa);
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  user-select: none;
+}
+
+.error-details {
+  display: none;
+  text-align: left;
+  background: rgba(0,0,0,0.3);
+  padding: 15px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #ffb3b3;
+  overflow-x: auto;
+  max-height: 200px;
+  margin-bottom: 25px;
+}
+
+.error-details.show {
+  display: block;
+}
+
+.error-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+}
+
+.localized-error-fallback {
+  padding: 20px;
+  border: 1px dashed #ef4444;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.05);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #ef4444;
+}
+
+.localized-error-fallback .btn-link {
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 10px;
+  font-weight: bold;
+}
+
