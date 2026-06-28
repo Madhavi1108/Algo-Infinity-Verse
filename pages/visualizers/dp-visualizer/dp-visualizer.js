@@ -534,9 +534,9 @@ class DPVisualizer {
         const memo = step.memo;
         
         // Reset all cells visually
-        document.querySelectorAll('#memoTable td').forEach(td => {
+        document.querySelectorAll('`#memoTable` td').forEach(td => {
             td.className = '';
-            // Only clear text if it wasn't set in previous steps (or just rewrite it completely)
+            td.textContent = '';
         });
         
         if (problem === 'fibonacci') {
