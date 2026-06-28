@@ -131,12 +131,20 @@
                   <p id="visitedCount">0</p>
                 </div>
                 <div class="stat-card">
+                  <h5>Total Iterations</h5>
+                  <p id="iterationsCount">0</p>
+                </div>
+                <div class="stat-card">
                   <h5>Shortest Path Length</h5>
                   <p id="shortestPathLength">0</p>
                 </div>
                 <div class="stat-card">
                   <h5>Total Path Cost</h5>
                   <p id="shortestPathCost">0</p>
+                </div>
+                <div class="stat-card">
+                  <h5>Execution Time</h5>
+                  <p id="executionTimeMs">0ms</p>
                 </div>
                 <div class="stat-card">
                   <h5>Execution State</h5>
@@ -168,6 +176,16 @@
                 </button>
               </div>
 
+              <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.5rem; margin-top: 1rem;">Grid Configuration</label>
+              <div class="control-group">
+                <label for="gridSizeRange">Grid Size (Rows & Cols)</label>
+                <input type="range" id="gridSizeRange" min="10" max="40" value="22" class="slider-custom">
+              </div>
+              <div class="control-group">
+                <label for="densityRange">Obstacle Density</label>
+                <input type="range" id="densityRange" min="0" max="100" value="25" class="slider-custom">
+              </div>
+
               <button id="generateMazeBtn" class="btn btn-secondary" style="width: 100%; margin-top: 1rem; justify-content: center; display: flex; align-items: center; gap: 0.5rem;">
                 <i class="fas fa-random"></i> Generate Maze
               </button>
@@ -184,7 +202,13 @@
                   <option value="bfs">Breadth First Search (BFS)</option>
                   <option value="dfs">Depth First Search (DFS)</option>
                   <option value="dijkstra">Dijkstra's Algorithm (Weighted)</option>
+                  <option value="astar">A* Search (Weighted + Heuristic)</option>
                 </select>
+              </div>
+
+              <div class="control-group" style="margin-top: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+                <label for="compareModeToggle" style="margin-bottom: 0;">Compare Dijkstra vs A*</label>
+                <input type="checkbox" id="compareModeToggle" style="transform: scale(1.2);">
               </div>
 
               <!-- Speed/Delay -->
@@ -203,6 +227,9 @@
                 </button>
                 <button id="stepBtn" class="btn btn-secondary btn-control">
                   <i class="fas fa-step-forward"></i> Step
+                </button>
+                <button id="replayBtn" class="btn btn-secondary btn-control" style="display: none;">
+                  <i class="fas fa-redo"></i> Replay
                 </button>
               </div>
               <div class="btn-control-row" style="margin-top: 0.5rem;">
