@@ -58,8 +58,11 @@ export async function fetchWithCache(key, fetcher, options = {}) {
                 // Update RAM cache
                 cache.set(key, newRecord);
                 
+            .then(async data => {
                 // Update IndexedDB cache
-                offlineStore.put(opts.offlineStoreName, newRecord).catch(console.warn);
+                await offlineStore.put(opts.offlineStoreName, newRecord).catch(err => {
+                    console.warn('[OfflineStore] Failed to persist cache record:', err);
+                });
                 
                 // Trigger callback if data changed
                 if (cachedRecord && isDifferent && typeof opts.onRevalidate === 'function') {
