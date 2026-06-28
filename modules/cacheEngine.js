@@ -2,12 +2,15 @@
  * Vanilla JS Stale-While-Revalidate (SWR) Caching Engine
  */
 
+import { offlineStore } from './offlineStore.js';
+
 const cache = new Map();
 const activePromises = new Map();
 
 const DEFAULT_OPTIONS = {
     ttl: 5 * 60 * 1000, // 5 minutes
-    onRevalidate: null  // Callback triggered when background fetch completes with new data
+    onRevalidate: null,  // Callback triggered when background fetch completes with new data
+    offlineStoreName: 'problems' // Default object store
 };
 
 /**
@@ -21,24 +24,42 @@ export async function fetchWithCache(key, fetcher, options = {}) {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     const now = Date.now();
     
-    // 1. Check Cache (Stale Phase)
-    const cachedRecord = cache.get(key);
-    const isFresh = cachedRecord && (now - cachedRecord.timestamp < opts.ttl);
-
-    // If fresh, just return it without revalidating
-    if (isFresh) {
-        return { data: cachedRecord.data, isStale: false };
+    // 1. Check RAM Cache (Stale Phase)
+    let cachedRecord = cache.get(key);
+    
+    // If not in RAM, try IndexedDB (Offline Phase)
+    if (!cachedRecord) {
+        try {
+            const dbRecord = await offlineStore.get(opts.offlineStoreName, key);
+            if (dbRecord) {
+                cachedRecord = dbRecord;
+                cache.set(key, cachedRecord);
+            }
+        } catch (err) {
+            console.warn('[OfflineStore] Failed to read from DB:', err);
+        }
     }
 
-    // 2. Revalidate Phase
-    // If a request for this key is already in flight, reuse that promise (Deduplication)
+    const isFresh = cachedRecord && (now - cachedRecord.timestamp < opts.ttl);
+
+    // If fresh and online, just return it without revalidating
+    // However, if we are offline, we MUST return what we have regardless of freshness
+    if (isFresh || !navigator.onLine) {
+        if (cachedRecord) return { data: cachedRecord.data, isStale: false };
+    }
+
+    // 2. Revalidate Phase (Network Request)
     if (!activePromises.has(key)) {
         const fetchPromise = fetcher()
             .then(data => {
                 const isDifferent = !cachedRecord || JSON.stringify(cachedRecord.data) !== JSON.stringify(data);
                 
-                // Update cache
-                cache.set(key, { data, timestamp: Date.now() });
+                const newRecord = { id: key, data, timestamp: Date.now() };
+                // Update RAM cache
+                cache.set(key, newRecord);
+                
+                // Update IndexedDB cache
+                offlineStore.put(opts.offlineStoreName, newRecord).catch(console.warn);
                 
                 // Trigger callback if data changed
                 if (cachedRecord && isDifferent && typeof opts.onRevalidate === 'function') {
@@ -62,8 +83,12 @@ export async function fetchWithCache(key, fetcher, options = {}) {
     }
 
     // No stale data available, must wait for network
-    const newData = await activePromises.get(key);
-    return { data: newData, isStale: false };
+    try {
+        const newData = await activePromises.get(key);
+        return { data: newData, isStale: false };
+    } catch (error) {
+        throw error;
+    }
 }
 
 /**

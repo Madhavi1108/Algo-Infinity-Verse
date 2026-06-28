@@ -8589,3 +8589,19 @@ html.light-mode .report-issue-btn:hover {
   font-weight: bold;
 }
 
+
+/* Offline Banner */
+.offline-banner {
+  background-color: #f59e0b;
+  color: #fff;
+  text-align: center;
+  padding: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+.offline-banner.hidden {
+  display: none;
+}

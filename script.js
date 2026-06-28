@@ -4208,3 +4208,33 @@ function trackBadgeEarned(badgeName) {
     
     setTimeout(setupProfileListeners, 200);
 })();
+
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      })
+      .catch((error) => {
+        console.log('ServiceWorker registration failed: ', error);
+      });
+  });
+}
+
+// Offline/Online status handler
+window.addEventListener(\'load\', () => {
+  function updateOnlineStatus() {
+    const banner = document.getElementById(\'offline-banner\');
+    if (banner) {
+      if (navigator.onLine) {
+        banner.classList.add(\'hidden\');
+      } else {
+        banner.classList.remove(\'hidden\');
+      }
+    }
+  }
+  window.addEventListener(\'online\', updateOnlineStatus);
+  window.addEventListener(\'offline\', updateOnlineStatus);
+  updateOnlineStatus();
+});
