@@ -43,7 +43,7 @@
   border: 1px solid #ef4444;
 }
 
-.editor-container {
+.pseudo-editor-container {
   display: flex;
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--glass-border);
@@ -67,14 +67,14 @@
   user-select: none;
 }
 
-.editor-scroll-area {
+.pseudo-editor-scroll-area {
   flex-grow: 1;
   position: relative;
   overflow: auto;
 }
 
 /* Overlapping Textarea and Pre */
-.code-editor, .highlight-layer {
+.pseudo-code-editor, .highlight-layer {
   position: absolute;
   top: 0;
   left: 0;
@@ -89,7 +89,7 @@
   tab-size: 4;
 }
 
-.code-editor {
+.pseudo-code-editor {
   color: transparent;
   caret-color: var(--text-primary);
   z-index: 2;
