@@ -4209,16 +4209,82 @@ function trackBadgeEarned(badgeName) {
     setTimeout(setupProfileListeners, 200);
 })();
 
-// PWA Service Worker Registration
+// PWA Service Worker Registration & Lifecycle Management
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+        
+        if (registration.waiting) {
+          showUpdateToast(registration.waiting);
+        }
+        
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateToast(newWorker);
+            }
+          });
+        });
       })
       .catch((error) => {
         console.log('ServiceWorker registration failed: ', error);
       });
+      
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+      if (event.data && event.data.type === 'PROCESS_OFFLINE_QUEUE') {
+        if (window.offlineStore && typeof window.offlineStore.syncQueue === 'function') {
+          console.log('[App] Processing offline action queue...');
+          await window.offlineStore.syncQueue();
+        }
+      }
+    });
+    
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(estimate => {
+        const usageMB = (estimate.usage / (1024 * 1024)).toFixed(2);
+        const quotaMB = (estimate.quota / (1024 * 1024)).toFixed(2);
+        const storageEl = document.getElementById('pwa-storage-usage');
+        if (storageEl) {
+          storageEl.textContent = `Offline Storage: ${usageMB} MB / ${quotaMB} MB`;
+        }
+      });
+    }
+  });
+}
+
+function showUpdateToast(worker) {
+  let toast = document.getElementById('pwa-update-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pwa-update-toast';
+    toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: rgba(16, 23, 42, 0.95); border: 1px solid var(--primary); padding: 1rem; border-radius: 8px; color: white; z-index: 10000; display: flex; gap: 1rem; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); backdrop-filter: blur(10px);';
+    
+    const text = document.createElement('span');
+    text.textContent = 'A new version is available!';
+    
+    const btn = document.createElement('button');
+    btn.textContent = 'Refresh';
+    btn.style.cssText = 'background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 600;';
+    btn.onclick = () => {
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    };
+    
+    toast.appendChild(text);
+    toast.appendChild(btn);
+    document.body.appendChild(toast);
+  }
+}
+
+let refreshing = false;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
 

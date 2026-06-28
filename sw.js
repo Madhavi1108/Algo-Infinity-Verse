@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   '/styles.css',
   '/script.js',
   '/manifest.json',
+  '/offline.html',
   '/images/icon-192x192.png',
   '/images/icon-512x512.png',
   'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap',
@@ -78,8 +79,10 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           });
         }).catch(() => {
-          // If offline and not in cache, we could return an offline page here
-          // return caches.match('/offline.html');
+          // If offline and not in cache, return the custom offline page for navigation requests
+          if (event.request.mode === 'navigate') {
+            return caches.match('/offline.html');
+          }
         });
 
         return cachedResponse || fetchPromise;
@@ -87,3 +90,29 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// Message Event - Handle Service Worker lifecycle
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// Background Sync API
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-offline-actions') {
+    console.log('[Service Worker] Syncing offline actions...');
+    event.waitUntil(processOfflineQueue());
+  }
+});
+
+async function processOfflineQueue() {
+  // Try to access indexedDB to replay offline actions
+  // This interacts with offlineStore.js logic indirectly via fetching to a server, 
+  // or posting message to clients to let them handle the sync.
+  const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+  for (const client of clients) {
+    client.postMessage({ type: 'PROCESS_OFFLINE_QUEUE' });
+  }
+}
+

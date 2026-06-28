@@ -38,6 +38,11 @@ class OfflineStore {
                 if (!db.objectStoreNames.contains('bookmarks')) {
                     db.createObjectStore('bookmarks', { keyPath: 'id' });
                 }
+                
+                // Store for Offline Action Queue (Background Sync)
+                if (!db.objectStoreNames.contains('syncQueue')) {
+                    db.createObjectStore('syncQueue', { keyPath: 'id', autoIncrement: true });
+                }
             };
 
             request.onsuccess = (event) => {
@@ -102,7 +107,48 @@ class OfflineStore {
             request.onerror = () => reject(request.error);
         });
     }
+    
+    // Background Sync Queue Helpers
+    async queueAction(actionType, payload) {
+        const action = {
+            type: actionType,
+            payload: payload,
+            timestamp: Date.now()
+        };
+        await this.put('syncQueue', action);
+        
+        // Request background sync if supported
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                await reg.sync.register('sync-offline-actions');
+                console.log('[OfflineStore] Registered background sync for offline action');
+            } catch (err) {
+                console.warn('[OfflineStore] Background sync could not be registered', err);
+            }
+        }
+    }
+    
+    async syncQueue() {
+        const actions = await this.getAll('syncQueue');
+        if (actions.length === 0) return;
+        
+        console.log(`[OfflineStore] Syncing ${actions.length} queued offline actions...`);
+        for (const action of actions) {
+            try {
+                // In a real application, you would send this to the server
+                // e.g. await fetch('/api/sync', { method: 'POST', body: JSON.stringify(action) })
+                console.log('[OfflineStore] Synced action:', action.type);
+                
+                // Remove from queue after successful sync
+                await this.delete('syncQueue', action.id);
+            } catch (error) {
+                console.error('[OfflineStore] Failed to sync action:', action, error);
+            }
+        }
+    }
 }
 
 // Export a singleton instance
 export const offlineStore = new OfflineStore();
+window.offlineStore = offlineStore; // Make available globally for SW message event
