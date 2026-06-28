@@ -139,21 +139,21 @@ class DPVisualizer {
         
         const recurse = (currentN, parentId) => {
             const nodeId = idCounter++;
-            const node = { id: nodeId, label: \`fib(\${currentN})\`, parent: parentId, children: [], n: currentN };
+            const node = { id: nodeId, label: `fib(${currentN})`, parent: parentId, children: [], n: currentN };
             this.treeNodes.push(node);
             
             if (parentId !== null) {
                 this.treeNodes[parentId].children.push(nodeId);
             }
             
-            callStack.push(\`fib(\${currentN})\`);
+            callStack.push(`fib(${currentN})`);
             
             // Step: Calling function
             this.steps.push({
                 type: 'CALL',
                 nodeId,
                 callStack: [...callStack],
-                stateStr: \`fib(\${currentN})\`,
+                stateStr: `fib(${currentN})`,
                 memo: JSON.parse(JSON.stringify(memo))
             });
 
@@ -164,7 +164,7 @@ class DPVisualizer {
                     type: 'BASE_CASE',
                     nodeId,
                     callStack: [...callStack],
-                    stateStr: \`fib(\${currentN}) = \${res}\`,
+                    stateStr: `fib(${currentN}) = ${res}`,
                     memo: JSON.parse(JSON.stringify(memo))
                 });
             } else if (currentN in memo) {
@@ -173,7 +173,7 @@ class DPVisualizer {
                     type: 'MEMO_HIT',
                     nodeId,
                     callStack: [...callStack],
-                    stateStr: \`Memo Hit: fib(\${currentN}) = \${res}\`,
+                    stateStr: `Memo Hit: fib(${currentN}) = ${res}`,
                     memo: JSON.parse(JSON.stringify(memo))
                 });
             } else {
@@ -186,7 +186,7 @@ class DPVisualizer {
                     type: 'CALCULATED',
                     nodeId,
                     callStack: [...callStack],
-                    stateStr: \`Calculated: fib(\${currentN}) = \${res}\`,
+                    stateStr: `Calculated: fib(${currentN}) = ${res}`,
                     memo: JSON.parse(JSON.stringify(memo)),
                     updatedMemoKey: currentN
                 });
@@ -198,7 +198,7 @@ class DPVisualizer {
                 type: 'RETURN',
                 nodeId,
                 callStack: [...callStack],
-                stateStr: \`Return \${res}\`,
+                stateStr: `Return ${res}`,
                 memo: JSON.parse(JSON.stringify(memo))
             });
             
@@ -219,44 +219,44 @@ class DPVisualizer {
         
         const recurse = (remW, currN, parentId) => {
             const nodeId = idCounter++;
-            const node = { id: nodeId, label: \`KS(\${currN},\${remW})\`, parent: parentId, children: [], n: currN, w: remW };
+            const node = { id: nodeId, label: `KS(${currN},${remW})`, parent: parentId, children: [], n: currN, w: remW };
             this.treeNodes.push(node);
             
             if (parentId !== null) {
                 this.treeNodes[parentId].children.push(nodeId);
             }
             
-            callStack.push(\`KS(\${currN},\${remW})\`);
+            callStack.push(`KS(${currN},${remW})`);
             
             this.steps.push({
                 type: 'CALL',
                 nodeId,
                 callStack: [...callStack],
-                stateStr: \`KS(\${currN}, \${remW})\`,
+                stateStr: `KS(${currN}, ${remW})`,
                 memo: JSON.parse(JSON.stringify(memo))
             });
 
             let res;
             if (currN === 0 || remW === 0) {
                 res = 0;
-                this.steps.push({ type: 'BASE_CASE', nodeId, callStack: [...callStack], stateStr: \`KS(\${currN},\${remW}) = 0\`, memo: JSON.parse(JSON.stringify(memo)) });
+                this.steps.push({ type: 'BASE_CASE', nodeId, callStack: [...callStack], stateStr: `KS(${currN},${remW}) = 0`, memo: JSON.parse(JSON.stringify(memo)) });
             } else if (memo[currN][remW] !== -1) {
                 res = memo[currN][remW];
-                this.steps.push({ type: 'MEMO_HIT', nodeId, callStack: [...callStack], stateStr: \`Memo Hit: \${res}\`, memo: JSON.parse(JSON.stringify(memo)) });
+                this.steps.push({ type: 'MEMO_HIT', nodeId, callStack: [...callStack], stateStr: `Memo Hit: ${res}`, memo: JSON.parse(JSON.stringify(memo)) });
             } else if (wt[currN - 1] > remW) {
                 res = recurse(remW, currN - 1, nodeId);
                 memo[currN][remW] = res;
-                this.steps.push({ type: 'CALCULATED', nodeId, callStack: [...callStack], stateStr: \`Calculated: \${res}\`, memo: JSON.parse(JSON.stringify(memo)), updatedMemoKey: \`\${currN},\${remW}\` });
+                this.steps.push({ type: 'CALCULATED', nodeId, callStack: [...callStack], stateStr: `Calculated: ${res}`, memo: JSON.parse(JSON.stringify(memo)), updatedMemoKey: `${currN},${remW}` });
             } else {
                 const excl = recurse(remW, currN - 1, nodeId);
                 const incl = val[currN - 1] + recurse(remW - wt[currN - 1], currN - 1, nodeId);
                 res = Math.max(incl, excl);
                 memo[currN][remW] = res;
-                this.steps.push({ type: 'CALCULATED', nodeId, callStack: [...callStack], stateStr: \`Calculated: \${res}\`, memo: JSON.parse(JSON.stringify(memo)), updatedMemoKey: \`\${currN},\${remW}\` });
+                this.steps.push({ type: 'CALCULATED', nodeId, callStack: [...callStack], stateStr: `Calculated: ${res}`, memo: JSON.parse(JSON.stringify(memo)), updatedMemoKey: `${currN},${remW}` });
             }
             
             callStack.pop();
-            this.steps.push({ type: 'RETURN', nodeId, callStack: [...callStack], stateStr: \`Return \${res}\`, memo: JSON.parse(JSON.stringify(memo)) });
+            this.steps.push({ type: 'RETURN', nodeId, callStack: [...callStack], stateStr: `Return ${res}`, memo: JSON.parse(JSON.stringify(memo)) });
             
             return res;
         };
@@ -320,7 +320,7 @@ class DPVisualizer {
                 tr1.appendChild(th);
                 
                 const td = document.createElement('td');
-                td.id = \`memo-cell-\${i}\`;
+                td.id = `memo-cell-${i}`;
                 td.textContent = '';
                 tr2.appendChild(td);
             }
@@ -334,7 +334,7 @@ class DPVisualizer {
             headerRow.appendChild(document.createElement('th')); // Empty top-left
             for (let w = 0; w <= W; w++) {
                 const th = document.createElement('th');
-                th.textContent = \`W=\${w}\`;
+                th.textContent = `W=${w}`;
                 headerRow.appendChild(th);
             }
             this.memoTable.appendChild(headerRow);
@@ -343,12 +343,12 @@ class DPVisualizer {
             for (let i = 0; i <= n; i++) {
                 const tr = document.createElement('tr');
                 const th = document.createElement('th');
-                th.textContent = \`i=\${i}\`;
+                th.textContent = `i=${i}`;
                 tr.appendChild(th);
                 
                 for (let w = 0; w <= W; w++) {
                     const td = document.createElement('td');
-                    td.id = \`memo-cell-\${i}-\${w}\`;
+                    td.id = `memo-cell-${i}-${w}`;
                     td.textContent = '';
                     tr.appendChild(td);
                 }
@@ -425,7 +425,7 @@ class DPVisualizer {
         
         // Update slider
         this.timelineSlider.value = this.currentStepIndex;
-        this.timelineProgress.textContent = \`\${this.currentStepIndex} / \${this.steps.length - 1}\`;
+        this.timelineProgress.textContent = `${this.currentStepIndex} / ${this.steps.length - 1}`;
         
         // Update State Display
         this.currentStateDisplay.textContent = step.stateStr;
@@ -541,7 +541,7 @@ class DPVisualizer {
         
         if (problem === 'fibonacci') {
             for (const key in memo) {
-                const cell = document.getElementById(\`memo-cell-\${key}\`);
+                const cell = document.getElementById(`memo-cell-${key}`);
                 if (cell) {
                     cell.textContent = memo[key];
                     cell.classList.add('cell-filled');
@@ -555,11 +555,11 @@ class DPVisualizer {
                 for (let w = 0; w < memo[i].length; w++) {
                     const val = memo[i][w];
                     if (val !== -1) {
-                        const cell = document.getElementById(\`memo-cell-\${i}-\${w}\`);
+                        const cell = document.getElementById(`memo-cell-${i}-${w}`);
                         if (cell) {
                             cell.textContent = val;
                             cell.classList.add('cell-filled');
-                            if (step.updatedMemoKey === \`\${i},\${w}\`) {
+                            if (step.updatedMemoKey === `${i},${w}`) {
                                 cell.classList.add('cell-active');
                             }
                         }
