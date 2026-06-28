@@ -4223,18 +4223,18 @@ if ('serviceWorker' in navigator) {
 }
 
 // Offline/Online status handler
-window.addEventListener(\'load\', () => {
+window.addEventListener('load', () => {
   function updateOnlineStatus() {
-    const banner = document.getElementById(\'offline-banner\');
+    const banner = document.getElementById('offline-banner');
     if (banner) {
       if (navigator.onLine) {
-        banner.classList.add(\'hidden\');
+        banner.classList.add('hidden');
       } else {
-        banner.classList.remove(\'hidden\');
+        banner.classList.remove('hidden');
       }
     }
   }
-  window.addEventListener(\'online\', updateOnlineStatus);
-  window.addEventListener(\'offline\', updateOnlineStatus);
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
   updateOnlineStatus();
 });
