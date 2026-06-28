@@ -111,6 +111,17 @@ function initPathfindingVisualizer() {
   const speedRange = document.getElementById("speedRange");
   const speedDisplay = document.getElementById("speedDisplay");
   
+  const mazeSelect = document.getElementById("mazeSelect");
+  const diagonalToggle = document.getElementById("diagonalToggle");
+  const heuristicSelect = document.getElementById("heuristicSelect");
+  const heuristicGroup = document.getElementById("heuristicGroup");
+  const comparisonStatsCard = document.getElementById("comparisonStatsCard");
+  const compDijkstraTime = document.getElementById("compDijkstraTime");
+  const compDijkstraNodes = document.getElementById("compDijkstraNodes");
+  const compAstarTime = document.getElementById("compAstarTime");
+  const compAstarNodes = document.getElementById("compAstarNodes");
+  const compWinnerMsg = document.getElementById("compWinnerMsg");
+
   const gridSizeRange = document.getElementById("gridSizeRange");
   const densityRange = document.getElementById("densityRange");
   
@@ -320,28 +331,79 @@ function initPathfindingVisualizer() {
       
       let wallsPlaced = 0;
       let weightsPlaced = 0;
-      let density = densityRange ? parseInt(densityRange.value) / 100 : 0.25;
-      let wallProb = density;
-      let weightProb = density + 0.1;
+      const mazeType = typeof mazeSelect !== 'undefined' && mazeSelect ? mazeSelect.value : "random";
       
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          // Keep start and target nodes clear
-          if ((r === startNode.r && c === startNode.c) || (r === targetNode.r && c === targetNode.c)) continue;
-          
-          const rand = Math.random();
-          if (rand < wallProb) { 
-            walls[r][c] = true;
-            wallsPlaced++;
-          } else if (rand < weightProb) { 
-            weights[r][c] = true;
-            weightsPlaced++;
+      if (mazeType === "random") {
+        let wallsPlaced = 0;
+        let weightsPlaced = 0;
+        let density = densityRange ? parseInt(densityRange.value) / 100 : 0.25;
+        let wallProb = density;
+        let weightProb = density + 0.1;
+        
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if ((r === startNode.r && c === startNode.c) || (r === targetNode.r && c === targetNode.c)) continue;
+            
+            const rand = Math.random();
+            if (rand < wallProb) { 
+              walls[r][c] = true;
+              wallsPlaced++;
+            } else if (rand < weightProb) { 
+              weights[r][c] = true;
+              weightsPlaced++;
+            }
           }
         }
+        addLogEntry(`Generated random grid: placed ${wallsPlaced} walls and ${weightsPlaced} weights with ${(density*100).toFixed(0)}% density.`, "info");
+      } else if (mazeType === "recursive") {
+        // Build outer walls
+        for (let r = 0; r < ROWS; r++) {
+          walls[r][0] = true;
+          walls[r][COLS-1] = true;
+        }
+        for (let c = 0; c < COLS; c++) {
+          walls[0][c] = true;
+          walls[ROWS-1][c] = true;
+        }
+        
+        function divide(r1, r2, c1, c2) {
+          if (r2 - r1 < 2 || c2 - c1 < 2) return;
+          
+          const horizontal = (r2 - r1) > (c2 - c1);
+          
+          if (horizontal) {
+            let wallR = Math.floor(Math.random() * ((r2 - r1) / 2)) * 2 + r1 + 1;
+            let passC = Math.floor(Math.random() * ((c2 - c1 + 1) / 2)) * 2 + c1;
+            
+            for (let c = c1; c <= c2; c++) {
+              if (c !== passC && !(wallR === startNode.r && c === startNode.c) && !(wallR === targetNode.r && c === targetNode.c)) {
+                walls[wallR][c] = true;
+              }
+            }
+            divide(r1, wallR - 1, c1, c2);
+            divide(wallR + 1, r2, c1, c2);
+          } else {
+            let wallC = Math.floor(Math.random() * ((c2 - c1) / 2)) * 2 + c1 + 1;
+            let passR = Math.floor(Math.random() * ((r2 - r1 + 1) / 2)) * 2 + r1;
+            
+            for (let r = r1; r <= r2; r++) {
+              if (r !== passR && !(r === startNode.r && wallC === startNode.c) && !(r === targetNode.r && wallC === targetNode.c)) {
+                walls[r][wallC] = true;
+              }
+            }
+            divide(r1, r2, c1, wallC - 1);
+            divide(r1, r2, wallC + 1, c2);
+          }
+        }
+        
+        divide(1, ROWS-2, 1, COLS-2);
+        
+        // Ensure start and target are not blocked
+        walls[startNode.r][startNode.c] = false;
+        walls[targetNode.r][targetNode.c] = false;
+        
+        addLogEntry("Generated Recursive Division Maze.", "info");
       }
-      
-      buildGrid();
-      addLogEntry(`Generated random grid: placed ${wallsPlaced} walls and ${weightsPlaced} weights with ${(density*100).toFixed(0)}% density.`, "info");
     });
   }
 
@@ -371,6 +433,9 @@ function initPathfindingVisualizer() {
     algoSelect.addEventListener("change", () => {
       updateComplexityHUD();
       clearPathVisuals();
+      if (heuristicGroup) {
+        heuristicGroup.style.display = algoSelect.value === "astar" ? "flex" : "none";
+      }
     });
   }
   
@@ -412,13 +477,20 @@ function initPathfindingVisualizer() {
      ───────────────────────────────────────────── */
   function getNeighbors(r, c) {
     const neighbors = [];
-    // 4-directional search coordinates
     const directions = [
-      { r: -1, c: 0 }, // Up
-      { r: 1, c: 0 },  // Down
-      { r: 0, c: -1 }, // Left
-      { r: 0, c: 1 }   // Right
+      { r: -1, c: 0, cost: 1 }, 
+      { r: 1, c: 0, cost: 1 },  
+      { r: 0, c: -1, cost: 1 }, 
+      { r: 0, c: 1, cost: 1 }   
     ];
+    if (diagonalToggle && diagonalToggle.checked) {
+      directions.push(
+        { r: -1, c: -1, cost: Math.SQRT2 },
+        { r: -1, c: 1, cost: Math.SQRT2 },
+        { r: 1, c: -1, cost: Math.SQRT2 },
+        { r: 1, c: 1, cost: Math.SQRT2 }
+      );
+    }
     
     for (const dir of directions) {
       const nr = r + dir.r;
@@ -426,7 +498,7 @@ function initPathfindingVisualizer() {
       
       if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
         if (!walls[nr][nc]) {
-          neighbors.push({ r: nr, c: nc });
+          neighbors.push({ r: nr, c: nc, moveCost: dir.cost });
         }
       }
     }
@@ -563,7 +635,7 @@ function initPathfindingVisualizer() {
       for (const neighbor of neighbors) {
         const nKey = getKey(neighbor.r, neighbor.c);
         if (unvisited.has(nKey)) {
-          const cost = weights[neighbor.r][neighbor.c] ? 5 : 1;
+          const cost = (weights[neighbor.r][neighbor.c] ? 5 : 1) * (neighbor.moveCost || 1);
           const newDist = dist[cr][cc] + cost;
           
           if (newDist < dist[neighbor.r][neighbor.c]) {
@@ -579,8 +651,16 @@ function initPathfindingVisualizer() {
   }
 
   function heuristic(r, c) {
-    // Manhattan distance
-    return Math.abs(r - targetNode.r) + Math.abs(c - targetNode.c);
+    const dx = Math.abs(r - targetNode.r);
+    const dy = Math.abs(c - targetNode.c);
+    const type = heuristicSelect ? heuristicSelect.value : "manhattan";
+    
+    if (type === "euclidean") {
+      return Math.sqrt(dx * dx + dy * dy);
+    } else if (type === "chebyshev") {
+      return Math.max(dx, dy);
+    }
+    return dx + dy;
   }
 
   function runAstar() {
@@ -631,7 +711,7 @@ function initPathfindingVisualizer() {
         const nKey = getKey(neighbor.r, neighbor.c);
         if (closedSet.has(nKey)) continue;
         
-        const cost = weights[neighbor.r][neighbor.c] ? 5 : 1;
+        const cost = (weights[neighbor.r][neighbor.c] ? 5 : 1) * (neighbor.moveCost || 1);
         const tentativeG = gScore[cr][cc] + cost;
         
         if (!openSet.has(nKey)) {
@@ -732,13 +812,38 @@ function initPathfindingVisualizer() {
       // Compare Mode logic
       if (compareModeToggle && compareModeToggle.checked && algo !== "astar" && algo !== "dijkstra") {
         addLogEntry("Comparison mode is active, but works best with Dijkstra vs A*. Select either one to see comparison.", "info");
+        if (comparisonStatsCard) comparisonStatsCard.classList.add("hidden");
       }
       if (compareModeToggle && compareModeToggle.checked && (algo === "dijkstra" || algo === "astar")) {
         const otherAlgo = algo === "dijkstra" ? "astar" : "dijkstra";
         const t0 = performance.now();
         const otherResult = otherAlgo === "dijkstra" ? runDijkstra() : runAstar();
         const t1 = performance.now();
+        
+        if (comparisonStatsCard) {
+          comparisonStatsCard.classList.remove("hidden");
+          const dTime = algo === "dijkstra" ? executionTimeMs : (t1-t0).toFixed(2);
+          const dNodes = algo === "dijkstra" ? iterationsCount : otherResult.visitedOrder.length;
+          const aTime = algo === "astar" ? executionTimeMs : (t1-t0).toFixed(2);
+          const aNodes = algo === "astar" ? iterationsCount : otherResult.visitedOrder.length;
+          
+          compDijkstraTime.textContent = dTime + "ms";
+          compDijkstraNodes.textContent = dNodes;
+          compAstarTime.textContent = aTime + "ms";
+          compAstarNodes.textContent = aNodes;
+          
+          if (aNodes < dNodes) {
+            compWinnerMsg.textContent = `A* explored ${dNodes - aNodes} fewer nodes than Dijkstra!`;
+          } else if (dNodes < aNodes) {
+            compWinnerMsg.textContent = `Dijkstra explored ${aNodes - dNodes} fewer nodes than A*!`;
+          } else {
+            compWinnerMsg.textContent = "Both algorithms explored the same number of nodes!";
+          }
+        }
+        
         addLogEntry(`COMPARISON: ${otherAlgo.toUpperCase()} took ${(t1-t0).toFixed(2)}ms, explored ${otherResult.visitedOrder.length} nodes.`, "info");
+      } else if (comparisonStatsCard) {
+        comparisonStatsCard.classList.add("hidden");
       }
     }
     
