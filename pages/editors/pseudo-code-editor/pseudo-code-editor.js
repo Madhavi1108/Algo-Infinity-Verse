@@ -8,9 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initPseudoCodeEditor() {
-  const codeEditor = document.getElementById('codeEditor');
-  const highlightLayer = document.getElementById('highlightLayer');
-  const lineNumbers = document.getElementById('lineNumbers');
+  const codeEditor = document.getElementById('pseudoCodeEditor');
+  const highlightLayer = document.getElementById('pseudoHighlightLayer');
+  const lineNumbers = document.getElementById('pseudoLineNumbers');
   const lintLog = document.getElementById('lintLog');
   const lintStatus = document.getElementById('lintStatus');
   const btnFormat = document.getElementById('btnFormat');
@@ -18,11 +18,7 @@ function initPseudoCodeEditor() {
 
   if (!codeEditor) return;
 
-  const keywords = /\b(IF|THEN|ELSE|ENDIF|FOR|TO|STEP|ENDFOR|WHILE|ENDWHILE|DO|UNTIL|REPEAT|RETURN|PRINT|INPUT|READ|FUNCTION|ENDFUNCTION|VAR|SET)\b/g;
-  const operators = /(=|\+|-|\*|\/|<|>|<=|>=|!=|AND|OR|NOT)/g;
-  const numbers = /\b\d+(\.\d+)?\b/g;
-  const strings = /(".*?"|'.*?')/g;
-  const comments = /(\/\/.*$)/gm;
+  const lexer = /(\/\/.*$)|(&quot;.*?&quot;|'.*?')|\b(IF|THEN|ELSE|ENDIF|FOR|TO|STEP|ENDFOR|WHILE|ENDWHILE|DO|UNTIL|REPEAT|RETURN|PRINT|INPUT|READ|FUNCTION|ENDFUNCTION|VAR|SET)\b|\b(\d+(?:\.\d+)?)\b|(=|\+|-|\*|\/|&lt;|&gt;|&lt;=|&gt;=|!=|\bAND\b|\bOR\b|\bNOT\b)/g;
 
   // Track scroll sync
   codeEditor.addEventListener('scroll', () => {
@@ -87,6 +83,8 @@ function initPseudoCodeEditor() {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
       
+      let lineErrorTitle = null;
+
       // Linting Analysis on the raw text
       const rawTrimmed = line.trim();
       const tokens = rawTrimmed.split(/\s+/);
@@ -100,7 +98,7 @@ function initPseudoCodeEditor() {
         } else if (['ENDIF', 'ENDFOR', 'ENDWHILE', 'ENDFUNCTION', 'UNTIL'].includes(firstToken)) {
           if (blockStack.length === 0) {
             errors.push({ line: lineNum, msg: `Found ${firstToken} but no opening block.` });
-            htmlLine = `<span class="token-error" title="Unexpected ${firstToken}">${htmlLine}</span>`;
+            lineErrorTitle = `Unexpected ${firstToken}`;
           } else {
             const expectedEnd = {
               'IF': 'ENDIF',
@@ -112,7 +110,7 @@ function initPseudoCodeEditor() {
             const openBlock = blockStack.pop();
             if (expectedEnd[openBlock.type] !== firstToken) {
               errors.push({ line: lineNum, msg: `Expected ${expectedEnd[openBlock.type]} to close ${openBlock.type} from line ${openBlock.line}, but found ${firstToken}.` });
-              htmlLine = `<span class="token-error" title="Mismatched block close">${htmlLine}</span>`;
+              lineErrorTitle = `Mismatched block close`;
             }
           }
         }
@@ -130,28 +128,25 @@ function initPseudoCodeEditor() {
       
       if (bracketsCount['('] < 0 || bracketsCount['['] < 0 || bracketsCount['{'] < 0) {
         errors.push({ line: lineNum, msg: `Mismatched closing bracket detected.` });
-        htmlLine = `<span class="token-error" title="Mismatched bracket">${htmlLine}</span>`;
+        if (!lineErrorTitle) lineErrorTitle = `Mismatched bracket`;
         // Reset to avoid cascading errors too much
         if (bracketsCount['('] < 0) bracketsCount['('] = 0;
         if (bracketsCount['['] < 0) bracketsCount['['] = 0;
         if (bracketsCount['{'] < 0) bracketsCount['{'] = 0;
       }
 
-      // Apply Highlighting classes
-      // Note: applying regex iteratively might conflict if tokens overlap. 
-      // Simple regex replacement is fine for basic pseudo-code highlight layer.
-      
-      // Comments
-      htmlLine = htmlLine.replace(comments, '<span class="token-comment">$&</span>');
-      // Strings (avoid messing with spans)
-      htmlLine = htmlLine.replace(/(&quot;.*?&quot;|'.*?')/g, '<span class="token-string">$&</span>');
-      // Keywords
-      htmlLine = htmlLine.replace(keywords, '<span class="token-keyword">$1</span>');
-      // Operators (Be careful with HTML entities like &lt; &gt;)
-      htmlLine = htmlLine.replace(/\b(AND|OR|NOT)\b/g, '<span class="token-operator">$1</span>');
-      htmlLine = htmlLine.replace(/(=|\+|-|\*|\/)/g, '<span class="token-operator">$1</span>');
-      // Numbers
-      htmlLine = htmlLine.replace(numbers, '<span class="token-number">$&</span>');
+      htmlLine = htmlLine.replace(lexer, (match, pComment, pString, pKeyword, pNumber, pOperator) => {
+        if (pComment) return `<span class="token-comment">${pComment}</span>`;
+        if (pString) return `<span class="token-string">${pString}</span>`;
+        if (pKeyword) return `<span class="token-keyword">${pKeyword}</span>`;
+        if (pNumber) return `<span class="token-number">${pNumber}</span>`;
+        if (pOperator) return `<span class="token-operator">${pOperator}</span>`;
+        return match;
+      });
+
+      if (lineErrorTitle) {
+        htmlLine = `<span class="token-error" title="${lineErrorTitle}">${htmlLine}</span>`;
+      }
 
       highlightedHtml += htmlLine + (index < lines.length - 1 ? '\n' : '');
     });

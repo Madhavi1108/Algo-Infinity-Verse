@@ -56,7 +56,7 @@
   line-height: 1.5;
 }
 
-.line-numbers {
+.pseudo-line-numbers {
   padding: 1rem 0.5rem;
   background: rgba(0, 0, 0, 0.6);
   color: rgba(255, 255, 255, 0.3);
