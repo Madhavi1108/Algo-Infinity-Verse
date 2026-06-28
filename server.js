@@ -431,6 +431,9 @@ async function handleApi(req, res, pathname) {
   
   if (pathname === "/api/execute" && req.method === "POST") {
     try {
+     
+      const payload = await readJsonBody(req);
+      const { sourceCode, language, stdin } = payload;
       const session = getSession(req);
       if (!session) {
         return sendJson(res, 401, {
@@ -438,7 +441,7 @@ async function handleApi(req, res, pathname) {
           message: "Authentication required.",
         });
       }
-
+     
       let payload;
       try {
         payload = await readJsonBody(req);
@@ -2451,4 +2454,3 @@ if (process.env.VERCEL !== "1" && process.env.NODE_ENV !== "test") {
       process.exit(1);
     });
 }
-
