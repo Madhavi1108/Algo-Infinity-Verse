@@ -441,4 +441,4 @@ function initBigOAnalyzer() {
     ctx.font = "bold 14px 'Orbitron'";
     ctx.fillText(complexityStr, w - 80, pad + 20);
   }
-});
+}
