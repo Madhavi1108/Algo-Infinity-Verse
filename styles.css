@@ -8592,8 +8592,8 @@ html.light-mode .report-issue-btn:hover {
 
 /* Offline Banner */
 .offline-banner {
-  background-color: #f59e0b;
-  color: #fff;
+  background-color: `#f59e0b`;
+  color: `#111827`;
   text-align: center;
   padding: 10px;
   position: sticky;
