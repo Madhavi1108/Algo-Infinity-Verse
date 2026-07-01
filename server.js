@@ -99,6 +99,7 @@ function validateMagicBytes(buffer, mimeType) {
 }
 const userSocketMap = new Map();
 const studyRooms = new Map();
+const memoryUserStore = new Map();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = __dirname;
@@ -254,23 +255,40 @@ async function createUser(userData) {
 }
 
 async function ensureUserStore() {
-  await fs.mkdir(DATA_DIR, { recursive: true });
   try {
-    await fs.access(USERS_FILE);
-  } catch {
-    await fs.writeFile(USERS_FILE, "[]\n");
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    try {
+      await fs.access(USERS_FILE);
+    } catch {
+      await fs.writeFile(USERS_FILE, "[]\n");
+    }
+  } catch (err) {
+    console.error("[ensureUserStore] Failed to initialize user store:", err);
   }
 }
 
 async function readUsers() {
   await ensureUserStore();
-  const raw = await fs.readFile(USERS_FILE, "utf8");
-  return JSON.parse(raw || "[]");
+  try {
+    const raw = await fs.readFile(USERS_FILE, "utf8");
+    const users = JSON.parse(raw || "[]");
+    users.forEach((u) => memoryUserStore.set(u.email, u));
+    return users;
+  } catch (err) {
+    console.error("[readUsers] Failed to read users:", err);
+    return Array.from(memoryUserStore.values());
+  }
 }
 
 async function writeUsers(users) {
   await ensureUserStore();
-  await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`);
+  try {
+    await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`);
+    users.forEach((u) => memoryUserStore.set(u.email, u));
+  } catch (err) {
+    console.error("[writeUsers] Failed to write users:", err);
+    users.forEach((u) => memoryUserStore.set(u.email, u));
+  }
 }
 
 async function ensureAuditsStore() {
