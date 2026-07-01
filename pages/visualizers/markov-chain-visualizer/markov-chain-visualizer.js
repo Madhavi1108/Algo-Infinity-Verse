@@ -357,9 +357,9 @@ function renderGraph() {
     const nodesMap = new Map();
     const links = [];
 
-    // Too many nodes will crash/clutter. Limit to most frequent or just top 30
+    // Too many nodes will crash/clutter. Limit to most frequent or just top 20
     let renderStates = mc.states;
-    if (renderStates.length > 30) renderStates = renderStates.slice(0, 30);
+    if (renderStates.length > 20) renderStates = renderStates.slice(0, 20);
 
     renderStates.forEach(s => {
         nodesMap.set(s, { id: s });
@@ -386,10 +386,10 @@ function renderGraph() {
     if (simulation) simulation.stop();
 
     simulation = d3.forceSimulation(graphData.nodes)
-        .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(150))
-        .force("charge", d3.forceManyBody().strength(-400))
+        .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(220))
+        .force("charge", d3.forceManyBody().strength(-800))
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide().radius(35));
+        .force("collide", d3.forceCollide().radius(50));
 
     // Links
     const linkGroup = svg.append("g").selectAll(".link-group")
