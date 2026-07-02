@@ -87,7 +87,16 @@
     height: calc(100% - 30px);
 }
 
-/* D3 SVG Styles */
+/* D3 SVG Styles (Matching Markov Chain Look) */
+#graphContainer {
+    width: 100%;
+    height: calc(100% - 30px);
+    overflow: visible; /* Prevent clipping of self loops */
+}
+.graph-controls {
+    display: none; /* Hide zoom controls if not needed, or style them dark */
+}
+
 .node circle {
     fill: var(--bg-secondary, #2c3e50);
     stroke: var(--border-color, #4a5568);
@@ -103,38 +112,43 @@
     filter: drop-shadow(0 0 12px var(--accent-color));
 }
 
+.node.accept circle {
+    fill: #2ecc71;
+    stroke: #27ae60;
+}
+.node.accept circle.inner-border {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 2px;
+}
+
 .node.halt circle {
-    fill: #28a745;
-    stroke: #1e7e34;
+    fill: #e74c3c;
+    stroke: #c0392b;
 }
 
 .node text {
     font-family: 'Orbitron', sans-serif;
     font-size: 14px;
-    fill: #ffffff; /* Forced white for visibility on dark node backgrounds */
+    fill: #ffffff;
     stroke: none;
     text-anchor: middle;
     dominant-baseline: central;
-}
-
-.node.active text {
-    fill: #fff;
-    font-weight: bold;
 }
 
 .link {
     fill: none;
     stroke: var(--text-muted, #718096);
     stroke-width: 2px;
-    marker-end: url(#arrowhead);
-    transition: stroke 0.3s ease;
-}
-.link:hover {
-    stroke: var(--accent-color, #3182ce);
-    stroke-width: 3px;
+    transition: stroke 0.3s ease, stroke-width 0.3s ease;
 }
 
-.link-label {
+.link.active-transition {
+    stroke: var(--accent-color, #3182ce);
+    stroke-width: 4px;
+}
+
+.transition-label-text {
     font-family: 'Fira Code', monospace;
     font-size: 13px;
     fill: var(--text-color, #ecf0f1);
@@ -144,6 +158,11 @@
     stroke-linecap: round;
     stroke-linejoin: round;
     font-weight: 500;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+.transition-label-rect {
+    display: none; /* Removed background boxes to match Markov chain */
 }
 
 .small-text {

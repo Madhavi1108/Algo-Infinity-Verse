@@ -368,6 +368,25 @@ function renderGraph() {
     
     svg.selectAll("*").remove();
 
+    const gWrapper = svg.append("g");
+    
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 4])
+        .on("zoom", (event) => {
+            gWrapper.attr("transform", event.transform);
+        });
+        
+    svg.call(zoom);
+
+    // Zoom controls
+    const btnZoomIn = document.getElementById('btnZoomIn');
+    const btnZoomOut = document.getElementById('btnZoomOut');
+    const btnResetView = document.getElementById('btnResetView');
+    
+    if (btnZoomIn) btnZoomIn.onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 1.2);
+    if (btnZoomOut) btnZoomOut.onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 0.8);
+    if (btnResetView) btnResetView.onclick = () => svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+
     // Define arrow markers
     svg.append("defs").append("marker")
         .attr("id", "arrowhead")
@@ -398,12 +417,12 @@ function renderGraph() {
             if (!nodes.has(t.nextState)) nodes.set(t.nextState, { id: t.nextState, isHalt: tm.acceptStates.has(t.nextState) });
             
             const linkKey = state + "->" + t.nextState;
-            const label = `${readSym}/${t.write},${t.dir}`;
+            const formattedLabel = `${readSym} → ${t.write}, ${t.dir}`;
             
             if (linksMap.has(linkKey)) {
-                linksMap.set(linkKey, linksMap.get(linkKey) + " | " + label);
+                linksMap.get(linkKey).push(formattedLabel);
             } else {
-                linksMap.set(linkKey, label);
+                linksMap.set(linkKey, [formattedLabel]);
             }
         }
     }
@@ -420,38 +439,57 @@ function renderGraph() {
         .force("link", d3.forceLink(graphData.links).id(d => d.id).distance(150))
         .force("charge", d3.forceManyBody().strength(-800))
         .force("center", d3.forceCenter(width / 2, height / 2))
-        .force("collide", d3.forceCollide().radius(40));
+        .force("collide", d3.forceCollide().radius(50));
 
     // Links
-    const linkGroup = svg.append("g").selectAll(".link-group")
+    const linkGroup = gWrapper.append("g").selectAll(".link-group")
         .data(graphData.links)
         .enter().append("g").attr("class", "link-group");
 
     const link = linkGroup.append("path")
         .attr("class", "link")
+        .attr("marker-end", "url(#arrowhead)")
         .attr("id", (d, i) => "link-" + i);
 
-    const linkLabel = linkGroup.append("text")
-        .attr("class", "link-label")
-        .attr("dy", -5)
-        .append("textPath")
-        .attr("xlink:href", (d, i) => "#link-" + i)
-        .attr("startOffset", "50%")
-        .style("text-anchor", "middle")
-        .text(d => d.label);
+    const linkLabel = linkGroup.append("g")
+        .attr("class", "transition-label-group");
+        
+    linkLabel.append("text")
+        .attr("class", "transition-label-text")
+        .each(function(d) {
+            const textEl = d3.select(this);
+            d.label.forEach((line, i) => {
+                textEl.append("tspan")
+                    .attr("x", 0)
+                    .attr("dy", i === 0 ? 0 : 16)
+                    .text(line);
+            });
+        });
 
     // Nodes
-    const node = svg.append("g").selectAll(".node")
+    const node = gWrapper.append("g").selectAll(".node")
         .data(graphData.nodes)
         .enter().append("g")
-        .attr("class", d => "node" + (d.isHalt ? " halt" : ""))
+        .attr("class", d => {
+            let cls = "node";
+            if (tm.acceptStates.has(d.id)) cls += " accept";
+            else if (d.isHalt) cls += " halt"; // For non-accepting halt states if any
+            return cls;
+        })
         .attr("id", d => "node-" + d.id.replace(/[^a-zA-Z0-9]/g, '_'))
         .call(d3.drag()
             .on("start", dragstarted)
             .on("drag", dragged)
             .on("end", dragended));
 
-    node.append("circle").attr("r", 25);
+    node.append("circle").attr("r", 30);
+    
+    // Double border for accept states
+    node.filter(d => tm.acceptStates.has(d.id))
+        .append("circle")
+        .attr("r", 24)
+        .attr("class", "inner-border");
+        
     node.append("text").text(d => d.id);
 
     simulation.on("tick", () => {
@@ -460,14 +498,14 @@ function renderGraph() {
             const dy = d.target.y - d.source.y;
             const dr = Math.sqrt(dx * dx + dy * dy);
             
-            // Self loop (curved path above the node)
+            // Self loop (large bezier curve above the node)
             if (d.source === d.target) {
                 const x = d.source.x, y = d.source.y;
-                return `M ${x} ${y - 25} A 25 25 0 1 1 ${x + 25} ${y} A 25 25 0 0 1 ${x} ${y - 25}`;
+                return `M ${x - 15} ${y - 25} C ${x - 80} ${y - 120}, ${x + 80} ${y - 120}, ${x + 15} ${y - 25}`;
             }
             
-            // Stop arrow at node boundary (radius 25 + arrow size offset ~5)
-            const r = 28;
+            // Stop arrow at node boundary (radius 30 + arrow size offset ~6)
+            const r = 36;
             const offsetX = (dx * r) / dr;
             const offsetY = (dy * r) / dr;
             
@@ -479,7 +517,31 @@ function renderGraph() {
             return `M ${d.source.x} ${d.source.y} A ${curveRadius} ${curveRadius} 0 0 1 ${targetX} ${targetY}`;
         });
 
-        node.attr("transform", d => `translate(${Math.max(25, Math.min(width - 25, d.x))},${Math.max(25, Math.min(height - 25, d.y))})`);
+        // Position labels neatly just outside the curved path
+        linkLabel.attr("transform", d => {
+            let x, y;
+            if (d.source === d.target) {
+                x = d.source.x;
+                y = d.source.y - 130; // Above self loop
+            } else {
+                const dx = d.target.x - d.source.x;
+                const dy = d.target.y - d.source.y;
+                const mx = (d.source.x + d.target.x) / 2;
+                const my = (d.source.y + d.target.y) / 2;
+                const len = Math.sqrt(dx*dx + dy*dy);
+                if (len === 0) {
+                    x = mx; y = my;
+                } else {
+                    const offset = (len * 0.085) + 15;
+                    x = mx + (-dy / len) * offset;
+                    y = my + (dx / len) * offset;
+                }
+            }
+            return `translate(${x},${y})`;
+        });
+
+        // Nodes no longer clamped strictly to width/height to allow infinite pan/zoom canvas
+        node.attr("transform", d => `translate(${d.x},${d.y})`);
     });
 
     function dragstarted(event, d) {
