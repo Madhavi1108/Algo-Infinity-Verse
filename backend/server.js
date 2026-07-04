@@ -506,7 +506,7 @@ async function authorizeRequest(req, pathname) {
     };
   }
 
-  if (!useFirestore) {
+  if (!useFirestore && !String(session.sub).startsWith("guest-")) {
     const users = await readUsers();
 
     const user = users.find(
@@ -568,6 +568,26 @@ async function handleApi(req, res, pathname) {
     } catch (error) {
       console.error("Resume analysis error:", error);
       return sendJson(res, 500, { error: error.message || "Failed to analyze resume." });
+    }
+  }
+
+  if (pathname === "/api/guest" && req.method === "POST") {
+    try {
+      const guestId = crypto.randomUUID();
+      const guestUser = {
+        id: `guest-${guestId}`,
+        name: "Guest",
+        email: `guest-${guestId}@local`,
+      };
+      const token = createSessionToken(guestUser);
+      return sendJson(
+        res, 200,
+        { authenticated: true, user: { id: guestUser.id, name: guestUser.name, email: guestUser.email } },
+        { "Set-Cookie": sessionCookie(token, req) },
+      );
+    } catch (err) {
+      console.error("[guest] Unexpected error:", err);
+      return sendJson(res, 500, { error: "Guest login failed. Please try again." });
     }
   }
 

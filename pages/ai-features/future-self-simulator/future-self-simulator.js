@@ -61,8 +61,7 @@ function initNavbar() {
    based on how long it's been since last review relative to the
    current SM-2 interval.
 
-   All data is stored client-side in localStorage. No backend or
-   login required.
+    All data is stored client-side in localStorage.
    ───────────────────────────────────────────── */
 
 const STORAGE_KEY = "futureSelfSimulator";

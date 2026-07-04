@@ -173,6 +173,10 @@
               <i class="fas fa-right-to-bracket"></i>
               Login
             </a>
+            <button class="nav-auth-link nav-auth-guest" data-auth-guest type="button">
+              <i class="fas fa-user-astronaut"></i>
+              Continue as Guest
+            </button>
             <a class="nav-auth-link nav-auth-primary" href="${authUrl("/signup")}">
               Sign Up
             </a>
@@ -237,6 +241,44 @@
       if (!googleBtn) return;
       event.preventDefault();
       await handleGoogleSignIn(googleBtn);
+    });
+  }
+
+  function wireGuestButton() {
+    document.addEventListener("click", async (event) => {
+      const guestBtn = event.target.closest("[data-auth-guest]");
+      if (!guestBtn) return;
+      event.preventDefault();
+      guestBtn.disabled = true;
+      guestBtn.dataset.loading = "true";
+      guestBtn.innerHTML = '<span class="btn-spinner"></span><span>Entering as guest...</span>';
+      try {
+        const response = await fetch("/api/guest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (response.ok) {
+          currentSession = { authenticated: true, user: payload.user };
+          window.algoAuth = currentSession;
+          document.documentElement.classList.remove("auth-unverified");
+          document.documentElement.classList.add("auth-verified");
+          renderAuthNav();
+          updateProfileNames(currentSession.user);
+          location.href = getNextDestination();
+        } else {
+          const text = JSON.stringify(payload);
+          console.warn("Guest auth failed:", response.status, text);
+          throw new Error("Guest login failed: " + (payload.error || text || response.status));
+        }
+      } catch (error) {
+        alert(error.message || "Guest login failed. Please try again.");
+      } finally {
+        guestBtn.disabled = false;
+        delete guestBtn.dataset.loading;
+        guestBtn.innerHTML = '<i class="fas fa-user-astronaut"></i><span>Continue as Guest</span>';
+      }
     });
   }
 
@@ -590,6 +632,7 @@
     renderAuthNav();
     wireLogout();
     wireGoogleButton();
+    wireGuestButton();
     wireAuthForm();
     wireDeactivateAccount();
     wireChangePassword();

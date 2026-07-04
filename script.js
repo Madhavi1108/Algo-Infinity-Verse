@@ -1287,10 +1287,7 @@ function initPracticeSection() {
         aiRecommendBtn.disabled = true;
         
         const res = await fetch("/api/recommendations/next", { credentials: "include" });
-        if (res.status === 401) {
-           alert("Please log in to get AI recommendations.");
-           return;
-        }
+        if (res.status === 401) return;
         const data = await res.json();
         
         if (data.success && data.recommendation) {
@@ -1579,7 +1576,7 @@ function addRecentProblem(problemId) {
   if (!userProgress.recentProblems) userProgress.recentProblems = [];
   userProgress.recentProblems = userProgress.recentProblems.filter(id => id !== problemId);
   userProgress.recentProblems.unshift(problemId);
-  if (userProgress.recentProblems.length > 5) userProgress.recentProblems.pop();
+  if (userProgress.recentProblems.length > 10) userProgress.recentProblems.pop();
   saveUserData();
 }
 
@@ -2276,7 +2273,7 @@ async function syncUserProgress() {
   const session = await getAuthenticatedSession();
   if (!session?.authenticated) return;
   try {
-    await fetch("/api/progress", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: userProgress.name, xp: userProgress.xp, level: userProgress.level, avatar: userProgress.avatar }) });
+    await fetch("/api/progress", { credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: userProgress.name, xp: userProgress.xp, level: userProgress.level, avatar: userProgress.avatar, activityData: userProgress.activityData }) });
     updateLeaderboard();
   } catch (e) { console.warn("Could not sync user progress:", e); }
 }
@@ -3853,14 +3850,20 @@ document.addEventListener('keydown', function(e) {
 
 // Open shortcut modal
 function openShortcutModal() {
-    const modal = document.getElementById('shortcutModal');
-    if (modal) modal.style.display = 'flex';
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
+    }
 }
 
 // Close shortcut modal
 function closeShortcutModal() {
-    const modal = document.getElementById('shortcutModal');
-    if (modal) modal.style.display = 'none';
+    const modal = document.getElementById('shortcutsModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+    }
 }
 
 // ===== DID YOU KNOW? FACTS =====
