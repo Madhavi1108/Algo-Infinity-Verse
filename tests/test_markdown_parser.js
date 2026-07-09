@@ -55,8 +55,10 @@ function runTests() {
 
   if (failures === 0) {
     console.log('\\nAll next-level features passed successfully! 🎉');
+    process.exit(0);
   } else {
     console.error(`\\n${failures} tests failed. Needs fixing.`);
+    process.exit(1);
   }
 }
 
