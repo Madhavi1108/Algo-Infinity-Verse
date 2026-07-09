@@ -86,6 +86,7 @@ function initPracticeSection() {
       else clearBtn.classList.remove("visible");
     });
   }
+  if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       searchInput.value = "";
       currentSearch = "";
