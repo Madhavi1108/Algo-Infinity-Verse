@@ -17,6 +17,18 @@ function initPracticeSection() {
   window.__practiceInitialized = true;
   const problemsGrid = document.querySelector(".problems-grid");
   if (!problemsGrid) return;
+  
+  // Try restoring state before attaching listeners
+  const savedStateStr = sessionStorage.getItem("practiceGridState");
+  let restoredScrollY = 0;
+  if (savedStateStr) {
+    try {
+      const state = JSON.parse(savedStateStr);
+      if (state.filter) currentFilter = state.filter;
+      if (state.search) currentSearch = state.search;
+      restoredScrollY = state.scrollY || 0;
+    } catch (e) {}
+  }
 
   const notesCloseBtn = document.getElementById("notesModalClose");
   const notesSaveBtn = document.getElementById("notesSaveBtn");
@@ -33,6 +45,11 @@ function initPracticeSection() {
       currentFilter = btn.dataset.filter;
       renderProblems();
     });
+    // Set active state on load if restored
+    if (btn.dataset.filter === currentFilter) {
+      filterButtons.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    }
   });
 
   const aiRecommendBtn = document.getElementById("ai-recommend-btn");
@@ -69,7 +86,6 @@ function initPracticeSection() {
       else clearBtn.classList.remove("visible");
     });
   }
-  if (clearBtn) {
     clearBtn.addEventListener("click", () => {
       searchInput.value = "";
       currentSearch = "";
@@ -77,6 +93,10 @@ function initPracticeSection() {
       renderProblems();
       searchInput.focus();
     });
+    if (currentSearch) {
+      searchInput.value = currentSearch;
+      clearBtn.classList.add("visible");
+    }
   }
 
   const paginationControls = document.getElementById('paginationControls');
@@ -85,6 +105,22 @@ function initPracticeSection() {
   }
 
   renderProblems();
+  
+  if (restoredScrollY > 0) {
+    // Delay scroll slightly to ensure DOM is ready and grid layout updated
+    setTimeout(() => {
+      window.scrollTo({ top: restoredScrollY, behavior: 'instant' });
+    }, 10);
+  }
+
+  // Save state on unload
+  window.addEventListener("beforeunload", () => {
+    sessionStorage.setItem("practiceGridState", JSON.stringify({
+      filter: currentFilter,
+      search: currentSearch,
+      scrollY: window.scrollY
+    }));
+  });
 }
 
 function getFilteredProblems() {

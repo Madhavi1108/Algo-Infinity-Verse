@@ -20,9 +20,15 @@ export class VirtualizedGrid {
     this.ticking = false;
     this.onScroll = this.handleScroll.bind(this);
     this.onResize = this.debounce(this.handleResize.bind(this), 100);
+    this.onKeyDown = this.handleKeyDown.bind(this);
 
     window.addEventListener('scroll', this.onScroll);
     window.addEventListener('resize', this.onResize);
+    
+    // Setup container for keyboard navigation
+    this.container.tabIndex = 0;
+    this.container.style.outline = 'none';
+    this.container.addEventListener('keydown', this.onKeyDown);
 
     this.resizeObserver = new ResizeObserver((entries) => {
       for (let entry of entries) {
@@ -71,6 +77,73 @@ export class VirtualizedGrid {
   handleResize() {
     this.state.windowHeight = window.innerHeight;
     this.updateLayout();
+  }
+
+  handleKeyDown(e) {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    
+    // Find the currently focused problem card index within the visible items
+    const activeEl = document.activeElement;
+    let currentIndex = -1;
+    
+    if (activeEl && activeEl.classList.contains('problem-card')) {
+      const id = parseInt(activeEl.dataset.id);
+      currentIndex = this.items.findIndex(item => item.id === id);
+    } else {
+      // If nothing focused, focus the first visible item
+      const visibleStart = Math.max(0, this.state.lastStartRow * this.state.columns);
+      currentIndex = visibleStart;
+      this.focusItem(currentIndex);
+      e.preventDefault();
+      return;
+    }
+    
+    if (currentIndex === -1) return;
+    
+    let nextIndex = currentIndex;
+    const columns = this.state.columns;
+    
+    if (e.key === 'ArrowRight') nextIndex += 1;
+    else if (e.key === 'ArrowLeft') nextIndex -= 1;
+    else if (e.key === 'ArrowDown') nextIndex += columns;
+    else if (e.key === 'ArrowUp') nextIndex -= columns;
+    
+    if (nextIndex >= 0 && nextIndex < this.items.length) {
+      e.preventDefault();
+      this.focusItem(nextIndex);
+    }
+  }
+  
+  focusItem(index) {
+    // If the item is out of bounds, scroll to it first
+    const columns = this.state.columns;
+    const targetRow = Math.floor(index / columns);
+    const rowHeightWithGap = this.estimatedItemHeight + this.gap;
+    
+    const containerRect = this.container.getBoundingClientRect();
+    const visibleTopRow = Math.floor((-containerRect.top) / rowHeightWithGap);
+    const visibleBottomRow = Math.floor((-containerRect.top + this.state.windowHeight) / rowHeightWithGap);
+    
+    if (targetRow < visibleTopRow || targetRow > visibleBottomRow - 1) {
+      // Scroll window to bring it into view
+      const targetScrollY = targetRow * rowHeightWithGap + (window.scrollY + containerRect.top) - (this.state.windowHeight / 2) + (rowHeightWithGap / 2);
+      window.scrollTo({ top: Math.max(0, targetScrollY), behavior: 'smooth' });
+      
+      // Wait for scroll and render to finish before focusing
+      setTimeout(() => this.applyFocus(index), 300);
+    } else {
+      this.applyFocus(index);
+    }
+  }
+  
+  applyFocus(index) {
+    const item = this.items[index];
+    if (!item) return;
+    const card = this.container.querySelector(`.problem-card[data-id="${item.id}"]`);
+    if (card) {
+      card.tabIndex = 0;
+      card.focus();
+    }
   }
 
   updateLayout() {
@@ -134,7 +207,7 @@ export class VirtualizedGrid {
     
     // Render only the visible items
     const visibleItems = this.items.slice(startIndex, endIndex);
-    const html = visibleItems.map((item, index) => this.renderItem(item, startIndex + index)).join('');
+    const html = visibleItems.map((item, index) => this.renderItem(item, startIndex + index, index)).join('');
     
     this.container.innerHTML = html;
     this.container.style.paddingTop = `${paddingTop}px`;
@@ -149,6 +222,7 @@ export class VirtualizedGrid {
   destroy() {
     window.removeEventListener('scroll', this.onScroll);
     window.removeEventListener('resize', this.onResize);
+    this.container.removeEventListener('keydown', this.onKeyDown);
     this.resizeObserver.disconnect();
   }
 }
